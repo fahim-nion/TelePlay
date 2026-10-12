@@ -100,3 +100,4 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, lastCheckedAt,
     </div>
   );
 };
+

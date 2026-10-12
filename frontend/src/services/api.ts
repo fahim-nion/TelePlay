@@ -69,3 +69,4 @@ export async function fetchCountries(): Promise<{ countries: CountryCount[] }> {
 export async function fetchSources(): Promise<{ sources: SourceRecord[] }> {
   return request<{ sources: SourceRecord[] }>('/api/sources/status');
 }
+

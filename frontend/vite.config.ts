@@ -16,6 +16,14 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: true,
+    chunkSizeWarningLimit: 700,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'hls-vendor': ['hls.js'],
+        },
+      },
+    },
   },
 });
 

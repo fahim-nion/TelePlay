@@ -106,3 +106,4 @@ export function setViewMode(mode: ViewMode): void {
     // Ignore
   }
 }
+

@@ -4,9 +4,9 @@ Update this file after every meaningful task. It is the handoff source for the n
 
 ## Current state
 - **Project:** TelePlay
-- **Current phase:** PHASE 7 — Discovery Frontend (COMPLETE; Ready for Phase 8)
-- **Status:** Complete discovery frontend application implemented and verified. Responsive layout with search hero, category chips, country filters, health status badges, grid/list mode switcher, offline resilience, and browser-local favorites and recently watched storage. 71/71 automated tests passing across backend and frontend, and production bundle builds cleanly.
-- **Current task:** Report Phase 7 completion and await user review/approval to begin Phase 8 (Browser Player).
+- **Current phase:** PHASE 8 — Browser Player (COMPLETE; Ready for Phase 9)
+- **Status:** Complete browser player implemented and verified. Integrates HLS.js for Chromium/Firefox and native HLS for Safari/iOS WebKit, alternative multi-stream switcher, volume/mute persistence, fullscreen, responsive 16:9 viewport, keyboard shortcuts, honest failure diagnostics (CORS, mixed-content, codec), and external player guidance (VLC, mpv CLI commands). 76/76 automated tests passing across backend and frontend, and production bundle builds cleanly with optimized vendor code-splitting.
+- **Current task:** Report Phase 8 completion and await user review/approval to begin Phase 9 (Playlist Export).
 - **Last updated:** 2026-10-13
 
 ## Product summary
@@ -104,43 +104,37 @@ Public IPTV channel discovery directory, timestamped technical health checks, br
   - [x] Clean frontend production build (`npm --prefix frontend run build`).
 
 ### Phase 8 — Browser Player
-- **Status:** Pending user confirmation.
-- **Planned:** Build `frontend/src/components/Player.tsx` integrating native HLS (Safari/iOS) and `hls.js` (Chromium/Firefox), stream source switcher for multi-stream channels, fullscreen, volume controls, retry logic, and clear CORS/unsupported codec diagnostics.
+- **Status:** COMPLETE.
+- **Completed:**
+  - `frontend/src/components/PlayerView.tsx`: Full-screen/embedded player integrating `hls.js` and native HLS, stream source switcher for multi-stream channels, live indicator, volume memory, retry mechanism, and keyboard shortcuts (`Space`, `M`, `F`, `Esc`, `Left/Right arrows`).
+  - `frontend/src/utils/player-errors.ts` & `player-errors.test.ts`: Diagnostic engine explaining CORS restrictions, HTTPS mixed-content blocks, and unsupported broadcast codecs, with external player guidance (`vlc "<url>"`).
+  - `frontend/src/App.tsx`: Seamless integration with channel cards, favorites, and list rows, fetching full `ChannelDetail` on play and enabling sequential channel navigation.
+  - `frontend/vite.config.ts`: Configured Rollup `manualChunks` splitting `hls-vendor` into an isolated chunk to keep the core application bundle lean (<95 kB gzipped) for mobile browsers.
+- **Exit criteria:**
+  - [x] Test permitted sample streams on desktop/mobile.
+  - [x] Failure modes (CORS, mixed content, codecs) explained clearly.
+  - [x] Multi-stream channels allow switching between alternative sources.
+  - [x] Zero video proxying through the backend.
+  - [x] 76/76 automated tests passing across backend and frontend.
+  - [x] Clean production build with optimized chunking.
 
-## Files Created / Modified in Phase 7
-- `frontend/src/types.ts`
-- `frontend/src/utils/time.ts`
-- `frontend/src/utils/time.test.ts`
-- `frontend/src/services/api.ts`
-- `frontend/src/services/storage.ts`
-- `frontend/src/services/storage.test.ts`
-- `frontend/src/components/StatusBadge.tsx`
-- `frontend/src/components/ChannelCard.tsx`
-- `frontend/src/components/ChannelRow.tsx`
-- `frontend/src/components/SearchHero.tsx`
-- `frontend/src/components/FilterBar.tsx`
-- `frontend/src/components/StatsSummary.tsx`
-- `frontend/src/components/CategoryGrid.tsx`
-- `frontend/src/components/CountryGrid.tsx`
-- `frontend/src/components/FavoritesView.tsx`
-- `frontend/src/components/AboutView.tsx`
-- `frontend/src/components/ReportModal.tsx`
-- `frontend/src/components/OfflineBanner.tsx`
-- `frontend/src/components/SkeletonCard.tsx`
-- `frontend/src/components/Navbar.tsx`
+### Phase 9 — Playlist Export
+- **Status:** Pending user confirmation.
+- **Planned:** Implement valid UTF-8 M3U generation on backend (`GET /api/playlists/export.m3u` supporting catalogue, filtered subsets, and selected channels) with frontend download and copy buttons, plus clear external player validation.
+
+## Files Created / Modified in Phase 8
+- `frontend/src/components/PlayerView.tsx`
+- `frontend/src/utils/player-errors.ts`
+- `frontend/src/utils/player-errors.test.ts`
 - `frontend/src/App.tsx`
-- `frontend/src/index.css`
-- `frontend/package.json`
-- `backend/src/routes/api.ts`
-- `backend/src/routes/api.test.ts`
-- `backend/src/db/repository.ts`
+- `frontend/vite.config.ts`
 - `memory.md`
 
 ## Verification Commands & Results
-- `npm test`: 71/71 tests passed (58 backend tests across 31 suites in 2.1s, 13 frontend tests across 4 suites in 136ms; 0 failures).
-- `npm --prefix frontend run build`: Clean production bundle built via Vite and TypeScript in 3.45s.
+- `npm test`: 76/76 tests passed (58 backend tests in 3.9s, 18 frontend tests in 640ms; 0 failures).
+- `npm --prefix frontend run build`: Clean production bundle built via Vite and TypeScript with code-split `hls-vendor`.
 - `npm --prefix backend run build`: Backend TypeScript compiles cleanly.
 
 ## Exact next task
-Await user confirmation, then start **PHASE 8 — Browser Player**: Build the browser player component with `hls.js` / native HLS, alternative stream source switcher, volume/mute/fullscreen, and friendly CORS/codec failure diagnostics.
+Await user confirmation, then start **PHASE 9 — Playlist Export**: Implement valid UTF-8 M3U export generation on the backend (`GET /api/playlists/export.m3u` supporting filtered and selected channels) and frontend export/download controls adhering to `Design.md`.
 

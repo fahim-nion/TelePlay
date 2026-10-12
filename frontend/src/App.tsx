@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import {
   Channel,
+  ChannelDetail,
   CatalogueStats,
   CategoryCount,
   CountryCount,
@@ -14,6 +15,7 @@ import {
   fetchHealth,
   fetchStats,
   fetchChannels,
+  fetchChannelById,
   fetchCategories,
   fetchCountries,
   fetchSources,
@@ -41,7 +43,8 @@ import { AboutView } from './components/AboutView';
 import { SkeletonCard } from './components/SkeletonCard';
 import { OfflineBanner } from './components/OfflineBanner';
 import { ReportModal } from './components/ReportModal';
-import { ChevronLeft, ChevronRight, Check, AlertCircle, Play, X, ExternalLink } from 'lucide-react';
+import { PlayerView } from './components/PlayerView';
+import { ChevronLeft, ChevronRight, Check, AlertCircle } from 'lucide-react';
 
 export default function App() {
   // Navigation & View Preferences
@@ -83,8 +86,8 @@ export default function App() {
   const [reportModalOpen, setReportModalOpen] = useState(false);
   const [reportChannelName, setReportChannelName] = useState('');
 
-  // Active Player Preview Modal (Phase 7 preview -> Phase 8 full player)
-  const [activePlayerChannel, setActivePlayerChannel] = useState<Channel | null>(null);
+  // Active Browser Player (Phase 8)
+  const [activePlayerChannel, setActivePlayerChannel] = useState<ChannelDetail | null>(null);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -198,10 +201,39 @@ export default function App() {
     showToast('Removed from favorites');
   };
 
-  const handlePlayChannel = (channel: Channel) => {
+  const handlePlayChannel = async (channel: Channel) => {
     addRecentlyWatched(channel);
     setRecentlyWatched(getRecentlyWatched());
-    setActivePlayerChannel(channel);
+
+    try {
+      const data = await fetchChannelById(channel.id);
+      setActivePlayerChannel(data.channel);
+    } catch (err) {
+      console.warn('Failed to fetch full channel detail, falling back:', err);
+      // Fallback for offline mode or cached channels
+      setActivePlayerChannel({
+        ...channel,
+        streams: [],
+      });
+    }
+  };
+
+  const activeChannelIndex = activePlayerChannel
+    ? channels.findIndex((c) => c.id === activePlayerChannel.id)
+    : -1;
+  const hasPreviousChannel = activeChannelIndex > 0;
+  const hasNextChannel = activeChannelIndex >= 0 && activeChannelIndex < channels.length - 1;
+
+  const handleNextChannel = () => {
+    if (hasNextChannel) {
+      handlePlayChannel(channels[activeChannelIndex + 1]);
+    }
+  };
+
+  const handlePreviousChannel = () => {
+    if (hasPreviousChannel) {
+      handlePlayChannel(channels[activeChannelIndex - 1]);
+    }
   };
 
   const handleCopyChannelUrl = (channel: Channel) => {
@@ -531,122 +563,22 @@ export default function App() {
         )}
       </main>
 
-      {/* Stream Player Preview Modal (Phase 7 preview -> Phase 8 full player) */}
+      {/* Full Browser Player (Phase 8) */}
       {activePlayerChannel && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.8)',
-            backdropFilter: 'blur(5px)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 60,
-            padding: '1rem',
+        <PlayerView
+          channel={activePlayerChannel}
+          onClose={() => setActivePlayerChannel(null)}
+          onNextChannel={handleNextChannel}
+          onPreviousChannel={handlePreviousChannel}
+          hasNextChannel={hasNextChannel}
+          hasPreviousChannel={hasPreviousChannel}
+          isFavorite={isFavorite(activePlayerChannel.id)}
+          onToggleFavorite={handleToggleFavoriteChannel}
+          onOpenReportModal={(name) => {
+            setReportChannelName(name);
+            setReportModalOpen(true);
           }}
-        >
-          <div
-            style={{
-              backgroundColor: 'var(--bg-secondary)',
-              border: '1px solid var(--border)',
-              borderRadius: '0.75rem',
-              maxWidth: '560px',
-              width: '100%',
-              padding: '1.5rem',
-              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.6)',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <Play size={18} style={{ color: 'var(--accent)' }} />
-                <h3 style={{ fontSize: '1.125rem', fontWeight: 700, color: 'var(--text-main)' }}>
-                  {activePlayerChannel.display_name}
-                </h3>
-              </div>
-              <button
-                onClick={() => setActivePlayerChannel(null)}
-                style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            <div
-              style={{
-                backgroundColor: 'var(--bg-primary)',
-                border: '1px solid var(--border)',
-                borderRadius: '0.5rem',
-                padding: '1.25rem',
-                marginBottom: '1.25rem',
-                textAlign: 'center',
-              }}
-            >
-              <p style={{ fontSize: '0.875rem', color: 'var(--text-main)', marginBottom: '0.5rem', fontWeight: 500 }}>
-                Direct Stream Access
-              </p>
-              <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
-                Channel details and direct stream endpoint:
-              </p>
-              <div
-                style={{
-                  backgroundColor: 'var(--bg-card)',
-                  padding: '0.5rem 0.75rem',
-                  borderRadius: '0.375rem',
-                  fontSize: '0.75rem',
-                  fontFamily: 'monospace',
-                  color: 'var(--accent)',
-                  wordBreak: 'break-all',
-                }}
-              >
-                /api/channels/{activePlayerChannel.id}
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
-              <button
-                onClick={() => {
-                  setReportChannelName(activePlayerChannel.display_name);
-                  setActivePlayerChannel(null);
-                  setReportModalOpen(true);
-                }}
-                style={{
-                  backgroundColor: 'transparent',
-                  color: 'var(--text-muted)',
-                  border: '1px solid var(--border)',
-                  borderRadius: '0.375rem',
-                  padding: '0.5rem 0.85rem',
-                  fontSize: '0.8125rem',
-                  cursor: 'pointer',
-                }}
-              >
-                Report Issue
-              </button>
-              <button
-                onClick={() => {
-                  handleCopyChannelUrl(activePlayerChannel);
-                  setActivePlayerChannel(null);
-                }}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.35rem',
-                  backgroundColor: 'var(--accent)',
-                  color: '#020617',
-                  border: 'none',
-                  borderRadius: '0.375rem',
-                  padding: '0.5rem 1rem',
-                  fontSize: '0.8125rem',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                }}
-              >
-                <ExternalLink size={14} />
-                <span>Copy Stream Info</span>
-              </button>
-            </div>
-          </div>
-        </div>
+        />
       )}
 
       {/* Report Modal */}

@@ -36,3 +36,4 @@ export function getChannelInitials(name: string): string {
   }
   return (words[0][0] + words[1][0]).toUpperCase();
 }
+

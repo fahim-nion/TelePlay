@@ -107,3 +107,4 @@ describe('Frontend LocalStorage Services', () => {
     assert.equal(getViewMode(), 'grid');
   });
 });
+

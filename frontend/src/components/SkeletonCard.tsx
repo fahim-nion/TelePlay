@@ -64,3 +64,4 @@ export const SkeletonCard: React.FC<SkeletonCardProps> = ({ viewMode = 'grid' })
     </div>
   );
 };
+

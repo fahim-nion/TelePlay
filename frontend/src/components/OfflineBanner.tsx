@@ -58,3 +58,4 @@ export const OfflineBanner: React.FC<OfflineBannerProps> = ({ onRetry, isRetryin
     </div>
   );
 };
+
