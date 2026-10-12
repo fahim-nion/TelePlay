@@ -1,0 +1,700 @@
+import { useEffect, useState, useCallback } from 'react';
+import {
+  Channel,
+  CatalogueStats,
+  CategoryCount,
+  CountryCount,
+  SourceRecord,
+  ChannelFilters,
+  ViewMode,
+  NavigationTab,
+  FavoriteChannel,
+} from './types';
+import {
+  fetchHealth,
+  fetchStats,
+  fetchChannels,
+  fetchCategories,
+  fetchCountries,
+  fetchSources,
+} from './services/api';
+import {
+  getFavorites,
+  toggleFavorite,
+  removeFavorite,
+  isFavorite,
+  getRecentlyWatched,
+  addRecentlyWatched,
+  getViewMode,
+  setViewMode,
+} from './services/storage';
+import { Navbar } from './components/Navbar';
+import { SearchHero } from './components/SearchHero';
+import { StatsSummary } from './components/StatsSummary';
+import { FilterBar } from './components/FilterBar';
+import { ChannelCard } from './components/ChannelCard';
+import { ChannelRow } from './components/ChannelRow';
+import { CategoryGrid } from './components/CategoryGrid';
+import { CountryGrid } from './components/CountryGrid';
+import { FavoritesView } from './components/FavoritesView';
+import { AboutView } from './components/AboutView';
+import { SkeletonCard } from './components/SkeletonCard';
+import { OfflineBanner } from './components/OfflineBanner';
+import { ReportModal } from './components/ReportModal';
+import { ChevronLeft, ChevronRight, Check, AlertCircle, Play, X, ExternalLink } from 'lucide-react';
+
+export default function App() {
+  // Navigation & View Preferences
+  const [currentTab, setCurrentTab] = useState<NavigationTab>('discover');
+  const [viewMode, setLocalViewMode] = useState<ViewMode>(getViewMode);
+
+  // Filters & Pagination
+  const [filters, setFilters] = useState<ChannelFilters>({
+    search: '',
+    category: '',
+    country: '',
+    healthStatus: '',
+    sortBy: 'name',
+    page: 1,
+    limit: 24,
+  });
+
+  // Data States
+  const [channels, setChannels] = useState<Channel[]>([]);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalChannels, setTotalChannels] = useState(0);
+  const [stats, setStats] = useState<CatalogueStats | null>(null);
+  const [categories, setCategories] = useState<CategoryCount[]>([]);
+  const [countries, setCountries] = useState<CountryCount[]>([]);
+  const [sources, setSources] = useState<SourceRecord[]>([]);
+
+  // Local Storage States
+  const [favorites, setFavorites] = useState<FavoriteChannel[]>(getFavorites);
+  const [recentlyWatched, setRecentlyWatched] = useState<FavoriteChannel[]>(getRecentlyWatched);
+
+  // Status & UI States
+  const [isBackendHealthy, setIsBackendHealthy] = useState<boolean | null>(null);
+  const [loadingChannels, setLoadingChannels] = useState(true);
+  const [loadingMeta, setLoadingMeta] = useState(true);
+  const [retryingBackend, setRetryingBackend] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Report Modal
+  const [reportModalOpen, setReportModalOpen] = useState(false);
+  const [reportChannelName, setReportChannelName] = useState('');
+
+  // Active Player Preview Modal (Phase 7 preview -> Phase 8 full player)
+  const [activePlayerChannel, setActivePlayerChannel] = useState<Channel | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => {
+      setToastMessage((prev) => (prev === msg ? null : prev));
+    }, 2800);
+  };
+
+  const handleViewModeChange = (mode: ViewMode) => {
+    setLocalViewMode(mode);
+    setViewMode(mode);
+  };
+
+  // Load Catalogue Metadata (Health, Stats, Categories, Countries, Sources)
+  const loadMetadata = useCallback(async () => {
+    setLoadingMeta(true);
+    try {
+      const [healthRes, statsRes, catRes, countRes, sourcesRes] = await Promise.allSettled([
+        fetchHealth(),
+        fetchStats(),
+        fetchCategories(),
+        fetchCountries(),
+        fetchSources(),
+      ]);
+
+      if (healthRes.status === 'fulfilled') {
+        setIsBackendHealthy(true);
+      } else {
+        setIsBackendHealthy(false);
+      }
+
+      if (statsRes.status === 'fulfilled') setStats(statsRes.value.stats);
+      if (catRes.status === 'fulfilled') setCategories(catRes.value.categories);
+      if (countRes.status === 'fulfilled') setCountries(countRes.value.countries);
+      if (sourcesRes.status === 'fulfilled') setSources(sourcesRes.value.sources);
+    } catch {
+      setIsBackendHealthy(false);
+    } finally {
+      setLoadingMeta(false);
+      setRetryingBackend(false);
+    }
+  }, []);
+
+  // Load Channels with current filters
+  const loadChannels = useCallback(async () => {
+    setLoadingChannels(true);
+    try {
+      const data = await fetchChannels(filters);
+      setChannels(data.channels);
+      setTotalPages(data.pagination.totalPages);
+      setTotalChannels(data.pagination.total);
+      setIsBackendHealthy(true);
+    } catch (err) {
+      console.warn('Failed to fetch channels:', err);
+      setIsBackendHealthy(false);
+    } finally {
+      setLoadingChannels(false);
+    }
+  }, [filters]);
+
+  useEffect(() => {
+    loadMetadata();
+  }, [loadMetadata]);
+
+  useEffect(() => {
+    loadChannels();
+  }, [loadChannels]);
+
+  // Handlers
+  const handleFilterChange = (updated: Partial<ChannelFilters>) => {
+    setFilters((prev) => ({
+      ...prev,
+      ...updated,
+      page: updated.page !== undefined ? updated.page : 1,
+    }));
+  };
+
+  const handleResetFilters = () => {
+    setFilters({
+      search: '',
+      category: '',
+      country: '',
+      healthStatus: '',
+      sortBy: 'name',
+      page: 1,
+      limit: 24,
+    });
+  };
+
+  const handleSelectCategory = (category: string) => {
+    setFilters((prev) => ({ ...prev, category, page: 1 }));
+    setCurrentTab('channels');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleSelectCountry = (country: string) => {
+    setFilters((prev) => ({ ...prev, country, page: 1 }));
+    setCurrentTab('channels');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleToggleFavoriteChannel = (channel: Channel) => {
+    const isNowFav = toggleFavorite(channel);
+    setFavorites(getFavorites());
+    showToast(isNowFav ? `Starred ${channel.display_name}` : `Removed ${channel.display_name} from favorites`);
+  };
+
+  const handleRemoveFavoriteById = (channelId: number) => {
+    removeFavorite(channelId);
+    setFavorites(getFavorites());
+    showToast('Removed from favorites');
+  };
+
+  const handlePlayChannel = (channel: Channel) => {
+    addRecentlyWatched(channel);
+    setRecentlyWatched(getRecentlyWatched());
+    setActivePlayerChannel(channel);
+  };
+
+  const handleCopyChannelUrl = (channel: Channel) => {
+    const channelUrl = `${window.location.origin}/api/channels/${channel.id}`;
+    navigator.clipboard.writeText(channelUrl).then(
+      () => showToast(`Copied ${channel.display_name} URL to clipboard`),
+      () => showToast('Failed to copy to clipboard')
+    );
+  };
+
+  const handlePageChange = (newPage: number) => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      handleFilterChange({ page: newPage });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  const retryBackendConnection = () => {
+    setRetryingBackend(true);
+    loadMetadata();
+    loadChannels();
+  };
+
+  return (
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      {/* Toast Notification Banner */}
+      {toastMessage && (
+        <div
+          style={{
+            position: 'fixed',
+            bottom: '24px',
+            right: '24px',
+            backgroundColor: 'var(--bg-card)',
+            color: 'var(--text-main)',
+            border: '1px solid var(--accent)',
+            borderRadius: '0.5rem',
+            padding: '0.75rem 1.25rem',
+            boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            zIndex: 100,
+            fontSize: '0.875rem',
+            fontWeight: 500,
+          }}
+        >
+          <Check size={16} style={{ color: 'var(--accent)' }} />
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
+      {/* Top Navigation */}
+      <Navbar
+        currentTab={currentTab}
+        onSelectTab={setCurrentTab}
+        favoritesCount={favorites.length}
+        isBackendHealthy={isBackendHealthy}
+        onOpenPlaylistBuilder={() => {
+          showToast('M3U Catalogue download available in Playlist Export (Phase 9)');
+        }}
+      />
+
+      {/* Main Container */}
+      <main style={{ maxWidth: '1200px', width: '100%', margin: '0 auto', padding: '1.5rem 1rem', flex: 1 }}>
+        {/* Offline Banner if Termux backend is disconnected */}
+        {isBackendHealthy === false && (
+          <OfflineBanner onRetry={retryBackendConnection} isRetrying={retryingBackend} />
+        )}
+
+        {/* Tab 1: DISCOVER (Homepage) */}
+        {currentTab === 'discover' && (
+          <div>
+            <SearchHero
+              searchQuery={filters.search || ''}
+              onSearchChange={(search) => {
+                handleFilterChange({ search });
+                if (search.trim()) setCurrentTab('channels');
+              }}
+              onSelectCategoryShortcut={handleSelectCategory}
+            />
+
+            <StatsSummary stats={stats} loading={loadingMeta} />
+
+            <CategoryGrid categories={categories} onSelectCategory={handleSelectCategory} />
+
+            {/* Featured / Directory Preview */}
+            <div style={{ marginTop: '2rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 700 }}>Recently Verified Channels</h3>
+                <button
+                  onClick={() => setCurrentTab('channels')}
+                  style={{
+                    backgroundColor: 'transparent',
+                    color: 'var(--accent)',
+                    border: 'none',
+                    fontSize: '0.875rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  View All Channels &rarr;
+                </button>
+              </div>
+
+              {loadingChannels ? (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
+                  {[1, 2, 3, 4, 5, 6].map((i) => (
+                    <SkeletonCard key={i} viewMode="grid" />
+                  ))}
+                </div>
+              ) : channels.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-muted)' }}>
+                  <p>No channels currently available.</p>
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
+                  {channels.slice(0, 8).map((channel) => (
+                    <ChannelCard
+                      key={channel.id}
+                      channel={channel}
+                      isFavorite={isFavorite(channel.id)}
+                      onToggleFavorite={handleToggleFavoriteChannel}
+                      onPlay={handlePlayChannel}
+                      onCopyUrl={handleCopyChannelUrl}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Tab 2: CHANNELS (Full Directory & Filters) */}
+        {currentTab === 'channels' && (
+          <div>
+            <div style={{ marginBottom: '1.5rem' }}>
+              <h2 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '0.35rem' }}>
+                Channels Directory
+              </h2>
+              <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+                Filter by topic, country origin, and verified technical health status.
+              </p>
+            </div>
+
+            <FilterBar
+              filters={filters}
+              categories={categories}
+              countries={countries}
+              viewMode={viewMode}
+              totalChannels={totalChannels}
+              onFilterChange={handleFilterChange}
+              onResetFilters={handleResetFilters}
+              onViewModeChange={handleViewModeChange}
+            />
+
+            {/* Channels Grid / List */}
+            {loadingChannels ? (
+              <div
+                style={{
+                  display: viewMode === 'grid' ? 'grid' : 'flex',
+                  gridTemplateColumns: viewMode === 'grid' ? 'repeat(auto-fill, minmax(280px, 1fr))' : undefined,
+                  flexDirection: viewMode === 'list' ? 'column' : undefined,
+                  gap: '1rem',
+                }}
+              >
+                {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+                  <SkeletonCard key={i} viewMode={viewMode} />
+                ))}
+              </div>
+            ) : channels.length === 0 ? (
+              <div
+                style={{
+                  backgroundColor: 'var(--bg-secondary)',
+                  border: '1px dashed var(--border)',
+                  borderRadius: '0.75rem',
+                  padding: '3rem 1.5rem',
+                  textAlign: 'center',
+                }}
+              >
+                <AlertCircle size={36} style={{ color: 'var(--text-muted)', margin: '0 auto 0.75rem', opacity: 0.7 }} />
+                <h3 style={{ fontSize: '1.125rem', fontWeight: 600, color: 'var(--text-main)', marginBottom: '0.5rem' }}>
+                  No channels match your filters
+                </h3>
+                <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', maxWidth: '420px', margin: '0 auto 1.25rem' }}>
+                  Try relaxing your search terms or clearing active category and country filters.
+                </p>
+                <button
+                  onClick={handleResetFilters}
+                  style={{
+                    backgroundColor: 'var(--bg-card)',
+                    color: 'var(--accent)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '0.375rem',
+                    padding: '0.5rem 1rem',
+                    fontSize: '0.875rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Reset All Filters
+                </button>
+              </div>
+            ) : viewMode === 'grid' ? (
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+                  gap: '1rem',
+                }}
+              >
+                {channels.map((channel) => (
+                  <ChannelCard
+                    key={channel.id}
+                    channel={channel}
+                    isFavorite={isFavorite(channel.id)}
+                    onToggleFavorite={handleToggleFavoriteChannel}
+                    onPlay={handlePlayChannel}
+                    onCopyUrl={handleCopyChannelUrl}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {channels.map((channel) => (
+                  <ChannelRow
+                    key={channel.id}
+                    channel={channel}
+                    isFavorite={isFavorite(channel.id)}
+                    onToggleFavorite={handleToggleFavoriteChannel}
+                    onPlay={handlePlayChannel}
+                    onCopyUrl={handleCopyChannelUrl}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '1rem',
+                  marginTop: '2.5rem',
+                  paddingTop: '1.5rem',
+                  borderTop: '1px solid var(--border)',
+                }}
+              >
+                <button
+                  className="pagination-btn"
+                  onClick={() => handlePageChange((filters.page || 1) - 1)}
+                  disabled={(filters.page || 1) <= 1}
+                >
+                  <ChevronLeft size={16} />
+                  <span>Previous</span>
+                </button>
+
+                <span style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+                  Page <strong>{filters.page || 1}</strong> of <strong>{totalPages}</strong>
+                </span>
+
+                <button
+                  className="pagination-btn"
+                  onClick={() => handlePageChange((filters.page || 1) + 1)}
+                  disabled={(filters.page || 1) >= totalPages}
+                >
+                  <span>Next</span>
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Tab 3: CATEGORIES */}
+        {currentTab === 'categories' && (
+          <div>
+            <div style={{ marginBottom: '1.5rem' }}>
+              <h2 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '0.35rem' }}>
+                All Categories
+              </h2>
+              <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+                Select any category to explore its Free-To-Air channels.
+              </p>
+            </div>
+            <CategoryGrid categories={categories} onSelectCategory={handleSelectCategory} />
+          </div>
+        )}
+
+        {/* Tab 4: COUNTRIES */}
+        {currentTab === 'countries' && (
+          <div>
+            <div style={{ marginBottom: '1.5rem' }}>
+              <h2 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '0.35rem' }}>
+                Channels by Country
+              </h2>
+              <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+                Discover regional broadcasts and international news by country origin.
+              </p>
+            </div>
+            <CountryGrid countries={countries} onSelectCountry={handleSelectCountry} />
+          </div>
+        )}
+
+        {/* Tab 5: FAVORITES */}
+        {currentTab === 'favorites' && (
+          <FavoritesView
+            favorites={favorites}
+            recentlyWatched={recentlyWatched}
+            onRemoveFavorite={handleRemoveFavoriteById}
+            onPlay={handlePlayChannel}
+            onCopyUrl={handleCopyChannelUrl}
+            onBrowseChannels={() => setCurrentTab('channels')}
+          />
+        )}
+
+        {/* Tab 6: ABOUT & SOURCES */}
+        {currentTab === 'about' && (
+          <AboutView
+            sources={sources}
+            onOpenReportModal={() => {
+              setReportChannelName('');
+              setReportModalOpen(true);
+            }}
+          />
+        )}
+      </main>
+
+      {/* Stream Player Preview Modal (Phase 7 preview -> Phase 8 full player) */}
+      {activePlayerChannel && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+            backdropFilter: 'blur(5px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 60,
+            padding: '1rem',
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: 'var(--bg-secondary)',
+              border: '1px solid var(--border)',
+              borderRadius: '0.75rem',
+              maxWidth: '560px',
+              width: '100%',
+              padding: '1.5rem',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.6)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Play size={18} style={{ color: 'var(--accent)' }} />
+                <h3 style={{ fontSize: '1.125rem', fontWeight: 700, color: 'var(--text-main)' }}>
+                  {activePlayerChannel.display_name}
+                </h3>
+              </div>
+              <button
+                onClick={() => setActivePlayerChannel(null)}
+                style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div
+              style={{
+                backgroundColor: 'var(--bg-primary)',
+                border: '1px solid var(--border)',
+                borderRadius: '0.5rem',
+                padding: '1.25rem',
+                marginBottom: '1.25rem',
+                textAlign: 'center',
+              }}
+            >
+              <p style={{ fontSize: '0.875rem', color: 'var(--text-main)', marginBottom: '0.5rem', fontWeight: 500 }}>
+                Direct Stream Access
+              </p>
+              <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
+                Channel details and direct stream endpoint:
+              </p>
+              <div
+                style={{
+                  backgroundColor: 'var(--bg-card)',
+                  padding: '0.5rem 0.75rem',
+                  borderRadius: '0.375rem',
+                  fontSize: '0.75rem',
+                  fontFamily: 'monospace',
+                  color: 'var(--accent)',
+                  wordBreak: 'break-all',
+                }}
+              >
+                /api/channels/{activePlayerChannel.id}
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => {
+                  setReportChannelName(activePlayerChannel.display_name);
+                  setActivePlayerChannel(null);
+                  setReportModalOpen(true);
+                }}
+                style={{
+                  backgroundColor: 'transparent',
+                  color: 'var(--text-muted)',
+                  border: '1px solid var(--border)',
+                  borderRadius: '0.375rem',
+                  padding: '0.5rem 0.85rem',
+                  fontSize: '0.8125rem',
+                  cursor: 'pointer',
+                }}
+              >
+                Report Issue
+              </button>
+              <button
+                onClick={() => {
+                  handleCopyChannelUrl(activePlayerChannel);
+                  setActivePlayerChannel(null);
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
+                  backgroundColor: 'var(--accent)',
+                  color: '#020617',
+                  border: 'none',
+                  borderRadius: '0.375rem',
+                  padding: '0.5rem 1rem',
+                  fontSize: '0.8125rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                <ExternalLink size={14} />
+                <span>Copy Stream Info</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Report Modal */}
+      <ReportModal
+        isOpen={reportModalOpen}
+        onClose={() => setReportModalOpen(false)}
+        channelName={reportChannelName}
+      />
+
+      {/* Footer */}
+      <footer
+        style={{
+          borderTop: '1px solid var(--border)',
+          backgroundColor: 'var(--bg-secondary)',
+          padding: '2rem 1rem',
+          marginTop: 'auto',
+          fontSize: '0.8125rem',
+          color: 'var(--text-muted)',
+          textAlign: 'center',
+        }}
+      >
+        <div style={{ maxWidth: '900px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          <p>
+            <strong>TelePlay</strong> — Free-To-Air Public IPTV Directory & Discovery Engine.
+          </p>
+          <p>
+            Direct browser streaming with verified source provenance. No commercial feeds, no video proxying.
+          </p>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginTop: '0.5rem' }}>
+            <button
+              onClick={() => setCurrentTab('about')}
+              style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontSize: '0.8125rem' }}
+            >
+              Approved Sources
+            </button>
+            <span>•</span>
+            <button
+              onClick={() => {
+                setReportChannelName('');
+                setReportModalOpen(true);
+              }}
+              style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontSize: '0.8125rem' }}
+            >
+              Report Broken Link
+            </button>
+          </div>
+        </div>
+      </footer>
+    </div>
+  );
+}

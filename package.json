@@ -1,0 +1,27 @@
+{
+  "name": "teleplay",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Public IPTV discovery directory and browser player",
+  "scripts": {
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "build:backend": "npm --prefix backend run build",
+    "build:frontend": "npm --prefix frontend run build",
+    "start:backend": "npm --prefix backend run start",
+    "test": "npm --prefix backend test && npm --prefix frontend test",
+    "test:backend": "npm --prefix backend test",
+    "test:frontend": "npm --prefix frontend test",
+    "install:all": "npm --prefix backend install && npm --prefix frontend install"
+  },
+  "keywords": [
+    "iptv",
+    "stream-discovery",
+    "hls",
+    "m3u8",
+    "termux"
+  ],
+  "author": "",
+  "license": "UNLICENSED"
+}
+
