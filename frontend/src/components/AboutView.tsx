@@ -6,9 +6,10 @@ import { formatRelativeTime } from '../utils/time';
 interface AboutViewProps {
   sources: SourceRecord[];
   onOpenReportModal: () => void;
+  onSelectSource?: (sourceId: string) => void;
 }
 
-export const AboutView: React.FC<AboutViewProps> = ({ sources, onOpenReportModal }) => {
+export const AboutView: React.FC<AboutViewProps> = ({ sources, onOpenReportModal, onSelectSource }) => {
   return (
     <div style={{ maxWidth: '800px', margin: '0 auto', paddingBottom: '3rem' }}>
       <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
@@ -96,16 +97,34 @@ export const AboutView: React.FC<AboutViewProps> = ({ sources, onOpenReportModal
               <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
                 <strong>License / Terms:</strong> {s.terms}
               </p>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-muted)', paddingTop: '0.5rem', borderTop: '1px solid var(--border)' }}>
                 <span>Last updated: {s.last_fetched_at ? formatRelativeTime(s.last_fetched_at) : 'Active'}</span>
-                <a
-                  href={s.source_url}
-                  target="_blank"
-                  rel="noreferrer"
-                  style={{ color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
-                >
-                  View Source <ExternalLink size={12} />
-                </a>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  {onSelectSource && (
+                    <button
+                      onClick={() => onSelectSource(s.id)}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: 'var(--accent)',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        fontSize: '0.75rem',
+                        padding: 0,
+                      }}
+                    >
+                      Inspect Source Details &rarr;
+                    </button>
+                  )}
+                  <a
+                    href={s.source_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.25rem', textDecoration: 'none' }}
+                  >
+                    View Source <ExternalLink size={12} />
+                  </a>
+                </div>
               </div>
             </div>
           ))}

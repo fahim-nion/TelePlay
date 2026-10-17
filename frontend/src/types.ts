@@ -87,13 +87,37 @@ export interface ChannelFilters {
   category?: string;
   country?: string;
   healthStatus?: string;
+  sourceId?: string;
   sortBy?: 'name' | 'recently_checked' | 'created_at';
   page?: number;
   limit?: number;
 }
 
+export interface SourceDetail extends SourceRecord {
+  category_default?: string | null;
+  last_error?: string | null;
+  created_at?: string;
+  channel_count: number;
+  stream_count: number;
+  channels: {
+    id: number;
+    display_name: string;
+    category: string;
+    country: string | null;
+    logo_url: string | null;
+  }[];
+}
+
+export interface ReportSubmission {
+  channelId?: number;
+  channelName: string;
+  streamUrl?: string;
+  reason: string;
+  details?: string;
+}
+
 export type ViewMode = 'grid' | 'list';
-export type NavigationTab = 'discover' | 'channels' | 'categories' | 'countries' | 'favorites' | 'about';
+export type NavigationTab = 'discover' | 'channels' | 'categories' | 'countries' | 'playlist' | 'favorites' | 'about';
 
 export interface FavoriteChannel {
   id: number;

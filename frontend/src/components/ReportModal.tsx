@@ -1,29 +1,67 @@
-import React, { useState } from 'react';
-import { X, Send, CheckCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Send, CheckCircle, AlertCircle, Loader } from 'lucide-react';
+import { submitReport } from '../services/api';
 
 interface ReportModalProps {
   isOpen: boolean;
   onClose: () => void;
   channelName?: string;
+  channelId?: number;
+  streamUrl?: string;
 }
 
-export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, channelName = '' }) => {
+export const ReportModal: React.FC<ReportModalProps> = ({
+  isOpen,
+  onClose,
+  channelName = '',
+  channelId,
+  streamUrl,
+}) => {
   const [name, setName] = useState(channelName);
   const [reason, setReason] = useState('broken');
   const [details, setDetails] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
+  const [confirmationMessage, setConfirmationMessage] = useState('');
+
+  useEffect(() => {
+    setName(channelName);
+    setErrorMessage(null);
+    setSubmitted(false);
+  }, [channelName, isOpen]);
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitted(true);
-    setTimeout(() => {
-      setSubmitted(false);
-      setName('');
-      setDetails('');
-      onClose();
-    }, 2000);
+    if (!name.trim()) return;
+
+    setIsSubmitting(true);
+    setErrorMessage(null);
+
+    try {
+      const res = await submitReport({
+        channelId,
+        channelName: name.trim(),
+        streamUrl,
+        reason,
+        details: details.trim() || undefined,
+      });
+
+      setSubmitted(true);
+      setConfirmationMessage(res.message || 'Report submitted successfully. Thank you for contributing!');
+      setTimeout(() => {
+        setSubmitted(false);
+        setName('');
+        setDetails('');
+        onClose();
+      }, 2500);
+    } catch (err: any) {
+      setErrorMessage(err.message || 'Failed to submit report. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -71,7 +109,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, chann
               Report Received
             </h4>
             <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>
-              Thank you for keeping TelePlay clean and reliable. Our automated checker and curators will verify the link.
+              {confirmationMessage || 'Thank you for keeping TelePlay clean and reliable. Our automated checker and curators will verify the link.'}
             </p>
           </div>
         ) : (
@@ -79,6 +117,26 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, chann
             <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
               Reports help keep our Free-To-Air directory accurate. Please specify what needs investigation.
             </p>
+
+            {errorMessage && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  padding: '0.65rem 0.85rem',
+                  backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                  border: '1px solid rgba(239, 68, 68, 0.25)',
+                  borderRadius: '0.375rem',
+                  color: '#f87171',
+                  fontSize: '0.8125rem',
+                  marginBottom: '1rem',
+                }}
+              >
+                <AlertCircle size={16} />
+                <span>{errorMessage}</span>
+              </div>
+            )}
 
             <div style={{ marginBottom: '1rem' }}>
               <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 500, marginBottom: '0.35rem' }}>
@@ -170,6 +228,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, chann
               </button>
               <button
                 type="submit"
+                disabled={isSubmitting}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -181,11 +240,21 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, chann
                   padding: '0.5rem 1.25rem',
                   fontSize: '0.875rem',
                   fontWeight: 600,
-                  cursor: 'pointer',
+                  cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                  opacity: isSubmitting ? 0.7 : 1,
                 }}
               >
-                <Send size={15} />
-                <span>Submit Report</span>
+                {isSubmitting ? (
+                  <>
+                    <Loader size={15} style={{ animation: 'spin 1s linear infinite' }} />
+                    <span>Submitting...</span>
+                  </>
+                ) : (
+                  <>
+                    <Send size={15} />
+                    <span>Submit Report</span>
+                  </>
+                )}
               </button>
             </div>
           </form>

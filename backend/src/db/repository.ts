@@ -1,6 +1,7 @@
 import { DatabaseSync } from 'node:sqlite';
 import { withTransaction } from './database.js';
 import { ParsedPlaylist, M3UEntry } from '../parser/types.js';
+import { ExportChannelItem, ExportChannelStream } from '../export/types.js';
 
 export interface ChannelRecord {
   id: number;
@@ -40,6 +41,7 @@ export interface ChannelFilterOptions {
   category?: string;
   country?: string;
   healthStatus?: string;
+  sourceId?: string;
   limit?: number;
   offset?: number;
   sortBy?: 'name' | 'recently_checked' | 'created_at';
@@ -203,6 +205,14 @@ export function listChannels(
   if (options.country && options.country.trim().length > 0) {
     whereClauses.push('c.country = ?');
     params.push(options.country.toUpperCase());
+  }
+
+  if (options.sourceId && options.sourceId.trim().length > 0) {
+    whereClauses.push(`EXISTS (
+      SELECT 1 FROM channel_sources cs_src
+      WHERE cs_src.channel_id = c.id AND cs_src.source_id = ?
+    )`);
+    params.push(options.sourceId.trim());
   }
 
   if (options.healthStatus && options.healthStatus.trim().length > 0) {
@@ -377,4 +387,243 @@ export function listCountries(db: DatabaseSync): { country: string; count: numbe
     ORDER BY count DESC, country ASC
   `);
   return stmt.all() as unknown as { country: string; count: number }[];
+}
+
+export interface ExportFilterOptions {
+  category?: string;
+  country?: string;
+  healthStatus?: string;
+  search?: string;
+  channelIds?: number[];
+  limit?: number;
+}
+
+/**
+ * Retrieves channels with their active stream sources for M3U playlist export.
+ */
+export function queryChannelsForExport(
+  db: DatabaseSync,
+  options: ExportFilterOptions = {}
+): ExportChannelItem[] {
+  const whereClauses: string[] = [];
+  const params: (string | number)[] = [];
+
+  if (options.category && options.category.trim().length > 0) {
+    whereClauses.push('c.category = ?');
+    params.push(options.category);
+  }
+
+  if (options.country && options.country.trim().length > 0) {
+    whereClauses.push('c.country = ?');
+    params.push(options.country.toUpperCase());
+  }
+
+  if (options.search && options.search.trim().length > 0) {
+    whereClauses.push('(c.display_name LIKE ? OR c.canonical_name LIKE ?)');
+    const searchTerm = `%${options.search.trim().toLowerCase()}%`;
+    params.push(searchTerm, searchTerm);
+  }
+
+  if (options.channelIds && options.channelIds.length > 0) {
+    const placeholders = options.channelIds.map(() => '?').join(',');
+    whereClauses.push(`c.id IN (${placeholders})`);
+    params.push(...options.channelIds);
+  }
+
+  if (options.healthStatus && options.healthStatus.trim().length > 0) {
+    whereClauses.push(`(
+      SELECT hc.status FROM health_checks hc
+      JOIN channel_sources cs2 ON cs2.id = hc.channel_source_id
+      WHERE cs2.channel_id = c.id
+      ORDER BY hc.checked_at DESC LIMIT 1
+    ) = ?`);
+    params.push(options.healthStatus);
+  }
+
+  const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
+  const limitSql = options.limit ? `LIMIT ${options.limit}` : '';
+
+  const channelsStmt = db.prepare(`
+    SELECT c.id, c.display_name, c.category, c.country, c.language, c.logo_url, c.tvg_id
+    FROM channels c
+    ${whereSql}
+    ORDER BY c.display_name ASC
+    ${limitSql}
+  `);
+
+  const channelRows = (params.length > 0 ? channelsStmt.all(...params) : channelsStmt.all()) as unknown as {
+    id: number;
+    display_name: string;
+    category: string;
+    country: string | null;
+    language: string | null;
+    logo_url: string | null;
+    tvg_id: string | null;
+  }[];
+
+  if (channelRows.length === 0) return [];
+
+  const streamsStmt = db.prepare(`
+    SELECT cs.channel_id, cs.stream_url, cs.stream_type, cs.source_name,
+      (SELECT hc.status FROM health_checks hc WHERE hc.channel_source_id = cs.id ORDER BY hc.checked_at DESC LIMIT 1) as health_status
+    FROM channel_sources cs
+    WHERE cs.is_active = 1
+    ORDER BY cs.id ASC
+  `);
+
+  const allStreams = streamsStmt.all() as unknown as {
+    channel_id: number;
+    stream_url: string;
+    stream_type: string;
+    source_name: string | null;
+    health_status: string | null;
+  }[];
+
+  // Group streams by channel_id
+  const streamMap = new Map<number, ExportChannelStream[]>();
+  for (const s of allStreams) {
+    if (!streamMap.has(s.channel_id)) {
+      streamMap.set(s.channel_id, []);
+    }
+    streamMap.get(s.channel_id)!.push({
+      streamUrl: s.stream_url,
+      streamType: s.stream_type,
+      sourceName: s.source_name,
+      healthStatus: s.health_status,
+    });
+  }
+
+  return channelRows.map((c) => ({
+    id: c.id,
+    displayName: c.display_name,
+    category: c.category,
+    country: c.country,
+    language: c.language,
+    logoUrl: c.logo_url,
+    tvgId: c.tvg_id,
+    streams: streamMap.get(c.id) || [],
+  }));
+}
+
+export interface ChannelReportRecord {
+  id: number;
+  channel_id: number | null;
+  channel_name: string;
+  stream_url: string | null;
+  reason: string;
+  details: string | null;
+  reported_at: string;
+  status: string;
+}
+
+export interface CreateReportOptions {
+  channelId?: number | null;
+  channelName: string;
+  streamUrl?: string | null;
+  reason: string;
+  details?: string | null;
+}
+
+/**
+ * Inserts a user-reported broken link or metadata correction.
+ */
+export function createChannelReport(
+  db: DatabaseSync,
+  options: CreateReportOptions
+): { id: number; reportedAt: string } {
+  const stmt = db.prepare(`
+    INSERT INTO channel_reports (channel_id, channel_name, stream_url, reason, details)
+    VALUES (?, ?, ?, ?, ?)
+  `);
+  stmt.run(
+    options.channelId ?? null,
+    options.channelName.trim(),
+    options.streamUrl?.trim() ?? null,
+    options.reason.trim(),
+    options.details?.trim() ?? null
+  );
+
+  const row = db.prepare('SELECT id, reported_at FROM channel_reports ORDER BY id DESC LIMIT 1').get() as {
+    id: number;
+    reported_at: string;
+  };
+  return { id: row.id, reportedAt: row.reported_at };
+}
+
+/**
+ * Lists submitted channel reports (ordered newest first).
+ */
+export function listChannelReports(db: DatabaseSync, limit: number = 50): ChannelReportRecord[] {
+  const stmt = db.prepare(`
+    SELECT * FROM channel_reports ORDER BY reported_at DESC LIMIT ?
+  `);
+  return stmt.all(limit) as unknown as ChannelReportRecord[];
+}
+
+export interface SourceDetail {
+  id: string;
+  name: string;
+  source_url: string;
+  category_default: string | null;
+  terms: string;
+  attribution: string;
+  enabled: number;
+  refresh_interval_hours: number;
+  last_fetched_at: string | null;
+  last_status: string | null;
+  last_error: string | null;
+  created_at: string;
+  channel_count: number;
+  stream_count: number;
+  channels: {
+    id: number;
+    display_name: string;
+    category: string;
+    country: string | null;
+    logo_url: string | null;
+  }[];
+}
+
+/**
+ * Retrieves full details, provenance metrics, and sample channels for an approved source.
+ */
+export function getSourceById(db: DatabaseSync, sourceId: string): SourceDetail | null {
+  const sourceStmt = db.prepare('SELECT * FROM sources WHERE id = ?');
+  const source = sourceStmt.get(sourceId) as unknown as any | undefined;
+  if (!source) return null;
+
+  const countRow = db.prepare(`
+    SELECT 
+      COUNT(DISTINCT channel_id) as channel_count,
+      COUNT(CASE WHEN is_active = 1 THEN 1 END) as stream_count
+    FROM channel_sources
+    WHERE source_id = ?
+  `).get(sourceId) as { channel_count: number; stream_count: number };
+
+  const sampleChannels = db.prepare(`
+    SELECT DISTINCT c.id, c.display_name, c.category, c.country, c.logo_url
+    FROM channels c
+    JOIN channel_sources cs ON cs.channel_id = c.id
+    WHERE cs.source_id = ?
+    ORDER BY c.display_name ASC
+    LIMIT 60
+  `).all(sourceId) as unknown as { id: number; display_name: string; category: string; country: string | null; logo_url: string | null }[];
+
+  return {
+    id: source.id,
+    name: source.name,
+    source_url: source.source_url,
+    category_default: source.category_default,
+    terms: source.terms,
+    attribution: source.attribution,
+    enabled: source.enabled,
+    refresh_interval_hours: source.refresh_interval_hours,
+    last_fetched_at: source.last_fetched_at,
+    last_status: source.last_status,
+    last_error: source.last_error,
+    created_at: source.created_at,
+    channel_count: countRow.channel_count,
+    stream_count: countRow.stream_count,
+    channels: sampleChannels,
+  };
 }

@@ -24,6 +24,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     { id: 'channels', label: 'Channels', icon: Tv },
     { id: 'categories', label: 'Categories', icon: Radio },
     { id: 'countries', label: 'Countries', icon: Globe },
+    { id: 'playlist', label: 'Build Playlist', icon: ListMusic },
     { id: 'favorites', label: 'Favorites', icon: Star, count: favoritesCount },
     { id: 'about', label: 'About & Sources', icon: Info },
   ];

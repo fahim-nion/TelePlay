@@ -4,8 +4,10 @@ import {
   CategoryCount,
   CountryCount,
   SourceRecord,
+  SourceDetail,
   CatalogueStats,
   ChannelFilters,
+  ReportSubmission,
 } from '../types';
 
 export class ApiError extends Error {
@@ -45,6 +47,7 @@ export async function fetchChannels(filters: ChannelFilters = {}): Promise<Chann
   if (filters.category) params.set('category', filters.category);
   if (filters.country) params.set('country', filters.country);
   if (filters.healthStatus) params.set('healthStatus', filters.healthStatus);
+  if (filters.sourceId) params.set('sourceId', filters.sourceId);
   if (filters.sortBy) params.set('sortBy', filters.sortBy);
   if (filters.page) params.set('page', filters.page.toString());
   if (filters.limit) params.set('limit', filters.limit.toString());
@@ -58,6 +61,30 @@ export async function fetchChannelById(id: number): Promise<{ channel: ChannelDe
   return request<{ channel: ChannelDetail }>(`/api/channels/${id}`);
 }
 
+export async function fetchSourceById(id: string): Promise<{ source: SourceDetail }> {
+  return request<{ source: SourceDetail }>(`/api/sources/${encodeURIComponent(id)}`);
+}
+
+export async function submitReport(
+  report: ReportSubmission
+): Promise<{ success: boolean; reportId: number; message: string }> {
+  const res = await fetch('/api/reports', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(report),
+  });
+  if (!res.ok) {
+    const errorText = await res.text().catch(() => '');
+    let msg = `HTTP ${res.status}: ${res.statusText}`;
+    try {
+      const parsed = JSON.parse(errorText);
+      if (parsed.error) msg = parsed.error;
+    } catch {}
+    throw new ApiError(msg, res.status);
+  }
+  return res.json();
+}
+
 export async function fetchCategories(): Promise<{ categories: CategoryCount[] }> {
   return request<{ categories: CategoryCount[] }>('/api/categories');
 }
@@ -68,5 +95,25 @@ export async function fetchCountries(): Promise<{ countries: CountryCount[] }> {
 
 export async function fetchSources(): Promise<{ sources: SourceRecord[] }> {
   return request<{ sources: SourceRecord[] }>('/api/sources/status');
+}
+
+export function getPlaylistExportUrl(options: {
+  category?: string;
+  country?: string;
+  healthStatus?: string;
+  channelIds?: number[];
+  includeAllStreams?: boolean;
+}): string {
+  const params = new URLSearchParams();
+  if (options.category) params.set('category', options.category);
+  if (options.country) params.set('country', options.country);
+  if (options.healthStatus) params.set('healthStatus', options.healthStatus);
+  if (options.channelIds && options.channelIds.length > 0) {
+    params.set('channelIds', options.channelIds.join(','));
+  }
+  if (options.includeAllStreams) params.set('includeAllStreams', 'true');
+
+  const qs = params.toString();
+  return `/api/playlists/export.m3u${qs ? `?${qs}` : ''}`;
 }
 

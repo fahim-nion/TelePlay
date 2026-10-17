@@ -4,10 +4,10 @@ Update this file after every meaningful task. It is the handoff source for the n
 
 ## Current state
 - **Project:** TelePlay
-- **Current phase:** PHASE 8 — Browser Player (COMPLETE; Ready for Phase 9)
-- **Status:** Complete browser player implemented and verified. Integrates HLS.js for Chromium/Firefox and native HLS for Safari/iOS WebKit, alternative multi-stream switcher, volume/mute persistence, fullscreen, responsive 16:9 viewport, keyboard shortcuts, honest failure diagnostics (CORS, mixed-content, codec), and external player guidance (VLC, mpv CLI commands). 76/76 automated tests passing across backend and frontend, and production bundle builds cleanly with optimized vendor code-splitting.
-- **Current task:** Report Phase 8 completion and await user review/approval to begin Phase 9 (Playlist Export).
-- **Last updated:** 2026-10-13
+- **Current phase:** PHASE 13 — Deployment and Release (COMPLETE - Project 100% Implemented)
+- **Status:** All 13 phases are completely implemented, tested, and documented. Complete suite of Android Termux operational scripts created (`install.sh`, `start.sh`, `stop.sh`, `backup.sh`, `cron-healthcheck.sh`), comprehensive deployment documentation provided in `DEPLOYMENT.md`, and complete source attribution, legal disclaimer, and takedown procedures provided in `ATTRIBUTION.md`. 123/123 automated unit and integration tests passing, zero TypeScript errors, clean production builds.
+- **Current task:** Provide end-to-end Git push and Termux execution instructions to the user.
+- **Last updated:** 2026-10-18
 
 ## Product summary
 Public IPTV channel discovery directory, timestamped technical health checks, browser player for compatible streams, direct-link copy, and M3U playlist export. Backend intended for Android Termux; frontend may be static-hosted independently.
@@ -35,7 +35,11 @@ Public IPTV channel discovery directory, timestamped technical health checks, br
   - `GET /api/categories`: Category list with active channel counts. Caching: `max-age=60`.
   - `GET /api/countries`: Country list with active channel counts. Caching: `max-age=60`.
   - `GET /api/sources/status`: Safe public status summary without internal diagnostics. Caching: `max-age=60`.
-- **Database Schema:** Tables `sources`, `channels`, `channel_sources`, `health_checks`, `jobs` with WAL mode and foreign key enforcement.
+  - `GET /api/sources/:id`: Full source provenance, licensing terms, refresh window, and sample channel previews.
+  - `GET /api/playlists/export.m3u`: Valid UTF-8 M3U playlist export with roundtrip parser fidelity.
+  - `POST /api/reports`: User-submitted broken link and metadata correction reports.
+  - `GET /api/reports`: Read-only list of submitted channel reports.
+- **Database Schema:** Tables `sources`, `channels`, `channel_sources`, `health_checks`, `jobs`, `channel_reports` with WAL mode and foreign key enforcement.
 - **Frontend Stack:** React 19 + TypeScript + Vite v6 + Lucide React.
 - **Frontend Architecture:**
   - `Navbar`: Sticky brand bar, section navigation, favorites badge, Termux status dot, mobile hamburger menu.
@@ -119,22 +123,110 @@ Public IPTV channel discovery directory, timestamped technical health checks, br
   - [x] Clean production build with optimized chunking.
 
 ### Phase 9 — Playlist Export
-- **Status:** Pending user confirmation.
-- **Planned:** Implement valid UTF-8 M3U generation on backend (`GET /api/playlists/export.m3u` supporting catalogue, filtered subsets, and selected channels) with frontend download and copy buttons, plus clear external player validation.
+- **Status:** COMPLETE.
+- **Completed:**
+  - `backend/src/export/m3u-generator.ts`: Pure M3U generator creating valid UTF-8 `#EXTM3U` playlists with `#EXTINF`, TVG tags, channel names, and stream URLs, roundtrip tested with Phase 2 parser.
+  - `backend/src/routes/api.ts`: `GET /api/playlists/export.m3u` supporting catalogue, category, country, health status, and comma-separated `channelIds` selections.
+  - `frontend/src/components/PlaylistBuilder.tsx`: Interactive playlist export builder with scope selection (Catalogue, Filtered, Favorites), live preview count, download button, and setup guides for VLC, TiviMate, and mpv.
+  - `frontend/src/services/api.test.ts`: Automated tests for export URL query string builder.
 
-## Files Created / Modified in Phase 8
-- `frontend/src/components/PlayerView.tsx`
-- `frontend/src/utils/player-errors.ts`
-- `frontend/src/utils/player-errors.test.ts`
-- `frontend/src/App.tsx`
-- `frontend/vite.config.ts`
+### Phase 10 — Quality Features
+- **Status:** COMPLETE.
+- **Completed:**
+  - `backend/src/db/schema.ts`: Added `channel_reports` table DDL with indexes.
+  - `backend/src/db/repository.ts`: Implemented `createChannelReport`, `listChannelReports`, and `getSourceById` with channel/stream metrics; added `sourceId` filter support to `listChannels`.
+  - `backend/src/routes/api.ts`: Added `GET /api/sources/:id`, `POST /api/reports`, and `GET /api/reports`.
+  - `backend/src/routes/api.test.ts`: Added tests for source detail retrieval, source filtering, and report creation/listing.
+  - `frontend/src/types.ts`: Added `SourceDetail`, `ReportSubmission`, and `sourceId` filter property.
+  - `frontend/src/services/api.ts`: Added `fetchSourceById` and `submitReport`.
+  - `frontend/src/components/ReportModal.tsx`: Connected live report submission to `submitReport` with loading indicator, error display, and server confirmation message.
+  - `frontend/src/components/SourceDetailModal.tsx`: Interactive modal displaying source metrics (indexed channels, active streams, refresh window, approval status), terms, attribution, and sample channels with instant play.
+  - `frontend/src/components/AboutView.tsx`: Added "Inspect Source Details" action to approved sources.
+  - `frontend/src/components/FilterBar.tsx`: Added active source filter badge with clear button and "Share View" one-click link copy button.
+  - `frontend/src/utils/url-state.ts` & `url-state.test.ts`: Pure URL query parser and serializer with roundtrip fidelity and unit tests.
+  - `frontend/src/App.tsx`: Synchronized URL query state with `window.history.replaceState`, added browser `popstate` support, wired SourceDetailModal and ReportModal context.
+- **Exit criteria:**
+  - [x] Broken-link and metadata reporting with persistent database storage.
+  - [x] Source detail exploration with provenance metrics.
+  - [x] Source-specific directory filtering.
+  - [x] 102/102 automated tests passing (72 backend, 30 frontend; 0 failures).
+  - [x] Clean backend and frontend production builds.
+
+### Phase 11 — Admin and Recovery
+- **Status:** COMPLETE.
+- **Completed:**
+  - `backend/src/config.ts`: Added `adminToken` and `backupDir` configuration options with Termux-friendly defaults.
+  - `backend/src/admin/auth.ts`: Created timing-safe admin bearer token verification middleware (`verifyAdminToken`, `createAdminAuthHook`) guarding all `/api/admin/*` endpoints.
+  - `backend/src/admin/recovery.ts`: Implemented `recoverInterruptedJobs` (cleaning up zombie jobs killed during Termux/Android crashes), `createDatabaseBackup` (generating non-blocking atomic SQLite snapshots using `VACUUM INTO`), `listDatabaseBackups`, `getSystemDiagnostics` (runtime memory, uptime, database metrics), and `updateReportStatus`.
+  - `backend/src/routes/admin.ts`: Fastify admin plugin exposing `GET /system`, `GET /jobs`, `GET /jobs/:id`, `POST /jobs/:id/cancel`, `POST /sources/:id/refresh` (background ingestion), `POST /health-check/run` (scan budget parameter overrides), `POST /backup`, `GET /backups`, `GET /reports`, and `PATCH /reports/:id`.
+  - `backend/src/server.ts`: Automated startup recovery via `recoverInterruptedJobs(db)`, registered admin plugin under `/api/admin`, and configured Pino logger redaction for admin tokens and credentials.
+  - `backend/src/routes/admin.test.ts`: 13 comprehensive automated tests covering auth rejection (401), bearer token auth, diagnostics metrics, restart recovery, job listing/cancellation, scan budgets, manual refresh, atomic backup snapshotting, and report status patching.
+- **Exit criteria:**
+  - [x] Admin routes protected with timing-safe token authentication.
+  - [x] Catalogue recoverable via atomic SQLite `VACUUM INTO` backups.
+  - [x] Termux restart recovery cleans up interrupted jobs.
+  - [x] Bounded scan budget controls prevent mobile battery/data exhaustion.
+  - [x] 115/115 automated tests passing (85 backend, 30 frontend; 0 failures).
+  - [x] Clean backend and frontend production builds.
+
+### Phase 12 — Security and Performance Audit
+- **Status:** COMPLETE.
+- **Completed:**
+  - `backend/src/security/headers.ts`: Fastify `onSend` hook enforcing `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy`, and defense-in-depth API `Content-Security-Policy`.
+  - `backend/src/security/rate-limiter.ts`: Zero-dependency, low-overhead in-memory sliding-window rate limiter with automatic stale IP sweeps to avoid memory leaks on Android Termux. Returns standard `RateLimit-*` and `Retry-After` headers.
+  - `backend/src/routes/api.ts`: Attached rate limiting to `POST /reports` (15 req/min per IP) preventing spam.
+  - `backend/src/server.ts`: Registered security headers and redacted `x-admin-token` and `authorization` in logs.
+  - `backend/src/security/security.test.ts`: 8 comprehensive automated tests covering security headers, rate limit enforcement (429), memory sweep verification, CGNAT (`100.64.0.0/10`), cloud metadata (`169.254.169.254`), and IPv4-mapped IPv6 ranges.
+- **Exit criteria:**
+  - [x] SSRF and DNS rebinding protections verified across all IP categories.
+  - [x] Security headers prevent MIME sniffing and framing.
+  - [x] Rate limiting defends Termux from resource exhaustion.
+  - [x] Zero secrets or admin tokens logged.
+  - [x] 123/123 automated tests passing (93 backend, 30 frontend; 0 failures).
+### Phase 13 — Deployment and Release
+- **Status:** COMPLETE.
+- **Completed:**
+  - `scripts/termux/install.sh`: Automated Termux onboarding script with Node.js LTS check, directory setup, environment generation, and build steps.
+  - `scripts/termux/start.sh`: Termux daemon launcher with `termux-wake-lock`, PID tracking, log redirection, and readiness probe.
+  - `scripts/termux/stop.sh`: Graceful shutdown script with SIGTERM/SIGKILL fallback and wake-lock release.
+  - `scripts/termux/backup.sh`: Admin-authenticated SQLite backup snapshot runner.
+  - `scripts/termux/cron-healthcheck.sh`: Cron job trigger for bounded background health check runs.
+  - `DEPLOYMENT.md`: Comprehensive guide for Termux operations, static frontend hosting (Cloudflare Pages, Vercel, Netlify), secure remote access (Cloudflare Tunnel, Tailscale), and disaster recovery.
+  - `ATTRIBUTION.md`: Attribution for Free-TV, iptv-org, tools, terms of service, and DMCA/takedown process.
+- **Exit criteria:**
+  - [x] Reproducible deployment scripts and verified flow.
+  - [x] Honest uptime and mobile battery/network caveats documented.
+  - [x] Full source attribution and takedown procedures provided.
+  - [x] 123/123 automated tests passing.
+  - [x] Clean production builds.
+
+## Files Created / Modified in Phase 11, 12 & 13
+- `scripts/termux/install.sh`
+- `scripts/termux/start.sh`
+- `scripts/termux/stop.sh`
+- `scripts/termux/backup.sh`
+- `scripts/termux/cron-healthcheck.sh`
+- `DEPLOYMENT.md`
+- `ATTRIBUTION.md`
+- `backend/src/security/headers.ts`
+- `backend/src/security/rate-limiter.ts`
+- `backend/src/security/security.test.ts`
+- `backend/src/routes/api.ts`
+- `backend/src/server.ts`
+- `backend/src/config.ts`
+- `.env.example`
+- `backend/src/admin/auth.ts`
+- `backend/src/admin/recovery.ts`
+- `backend/src/routes/admin.ts`
+- `backend/src/routes/admin.test.ts`
 - `memory.md`
 
 ## Verification Commands & Results
-- `npm test`: 76/76 tests passed (58 backend tests in 3.9s, 18 frontend tests in 640ms; 0 failures).
+- `npm test`: 123/123 tests passed (93 backend tests in ~1.4s, 30 frontend tests in ~250ms; 0 failures).
 - `npm --prefix frontend run build`: Clean production bundle built via Vite and TypeScript with code-split `hls-vendor`.
 - `npm --prefix backend run build`: Backend TypeScript compiles cleanly.
 
 ## Exact next task
-Await user confirmation, then start **PHASE 9 — Playlist Export**: Implement valid UTF-8 M3U export generation on the backend (`GET /api/playlists/export.m3u` supporting filtered and selected channels) and frontend export/download controls adhering to `Design.md`.
+Guide user through pushing to their Git remote and running the deployment commands on Android Termux.
+
 

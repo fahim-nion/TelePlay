@@ -4,6 +4,9 @@ import { DatabaseSync } from 'node:sqlite';
 import { config, AppConfig } from './config.js';
 import { createDatabase } from './db/database.js';
 import { apiRoutes } from './routes/api.js';
+import { adminRoutes } from './routes/admin.js';
+import { recoverInterruptedJobs } from './admin/recovery.js';
+import { registerSecurityHeaders } from './security/headers.js';
 
 export async function buildApp(
   appConfig: AppConfig = config,
@@ -11,17 +14,23 @@ export async function buildApp(
 ): Promise<FastifyInstance> {
   const db = database || createDatabase(appConfig.databasePath);
 
+  // Termux Restart Recovery: Clean up any jobs left interrupted by server restart
+  recoverInterruptedJobs(db);
+
   const app = Fastify({
     logger: {
       level: appConfig.logLevel,
-      redact: ['req.headers.authorization', 'req.headers.cookie'],
+      redact: ['req.headers.authorization', 'req.headers["x-admin-token"]', 'req.headers.cookie'],
     },
   });
+
+  // Enforce HTTP Security Headers (nosniff, DENY framing, CSP)
+  await registerSecurityHeaders(app);
 
   // Enable CORS for frontend requests
   await app.register(cors, {
     origin: appConfig.corsOrigin === '*' ? true : appConfig.corsOrigin,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   });
 
   // Health check endpoint required by Phase 1
@@ -38,6 +47,9 @@ export async function buildApp(
 
   // Register public read-only API endpoints under /api
   await app.register(apiRoutes, { prefix: '/api', db });
+
+  // Register protected admin and recovery endpoints under /api/admin
+  await app.register(adminRoutes, { prefix: '/api/admin', db, config: appConfig });
 
   // Decorate app with db for cleanup / testing
   app.decorate('db', db);

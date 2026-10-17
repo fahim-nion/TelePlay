@@ -44,23 +44,19 @@ import { SkeletonCard } from './components/SkeletonCard';
 import { OfflineBanner } from './components/OfflineBanner';
 import { ReportModal } from './components/ReportModal';
 import { PlayerView } from './components/PlayerView';
+import { PlaylistBuilder } from './components/PlaylistBuilder';
+import { SourceDetailModal } from './components/SourceDetailModal';
+import { parseUrlState, buildUrlQuery, copyShareableLink } from './utils/url-state';
 import { ChevronLeft, ChevronRight, Check, AlertCircle } from 'lucide-react';
 
 export default function App() {
-  // Navigation & View Preferences
-  const [currentTab, setCurrentTab] = useState<NavigationTab>('discover');
+  // Navigation & View Preferences (initialized from URL if present)
+  const initialUrl = parseUrlState(window.location.search);
+  const [currentTab, setCurrentTab] = useState<NavigationTab>(initialUrl.tab);
   const [viewMode, setLocalViewMode] = useState<ViewMode>(getViewMode);
 
-  // Filters & Pagination
-  const [filters, setFilters] = useState<ChannelFilters>({
-    search: '',
-    category: '',
-    country: '',
-    healthStatus: '',
-    sortBy: 'name',
-    page: 1,
-    limit: 24,
-  });
+  // Filters & Pagination (initialized from URL if present)
+  const [filters, setFilters] = useState<ChannelFilters>(initialUrl.filters);
 
   // Data States
   const [channels, setChannels] = useState<Channel[]>([]);
@@ -85,6 +81,11 @@ export default function App() {
   // Report Modal
   const [reportModalOpen, setReportModalOpen] = useState(false);
   const [reportChannelName, setReportChannelName] = useState('');
+  const [reportChannelId, setReportChannelId] = useState<number | undefined>(undefined);
+  const [reportStreamUrl, setReportStreamUrl] = useState<string | undefined>(undefined);
+
+  // Source Detail Modal
+  const [activeSourceDetailId, setActiveSourceDetailId] = useState<string | null>(null);
 
   // Active Browser Player (Phase 8)
   const [activePlayerChannel, setActivePlayerChannel] = useState<ChannelDetail | null>(null);
@@ -156,6 +157,24 @@ export default function App() {
     loadChannels();
   }, [loadChannels]);
 
+  // Sync URL query state when tab or filters change
+  useEffect(() => {
+    const qs = buildUrlQuery(currentTab, filters);
+    const newUrl = `${window.location.pathname}${qs}`;
+    window.history.replaceState(null, '', newUrl);
+  }, [currentTab, filters]);
+
+  // Handle browser popstate navigation (Back / Forward)
+  useEffect(() => {
+    const handlePopState = () => {
+      const parsed = parseUrlState(window.location.search);
+      setCurrentTab(parsed.tab);
+      setFilters(parsed.filters);
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
   // Handlers
   const handleFilterChange = (updated: Partial<ChannelFilters>) => {
     setFilters((prev) => ({
@@ -171,10 +190,16 @@ export default function App() {
       category: '',
       country: '',
       healthStatus: '',
+      sourceId: '',
       sortBy: 'name',
       page: 1,
       limit: 24,
     });
+  };
+
+  const handleShareView = async () => {
+    const success = await copyShareableLink(currentTab, filters);
+    showToast(success ? 'Shareable view link copied to clipboard!' : 'Failed to copy link');
   };
 
   const handleSelectCategory = (category: string) => {
@@ -291,9 +316,7 @@ export default function App() {
         onSelectTab={setCurrentTab}
         favoritesCount={favorites.length}
         isBackendHealthy={isBackendHealthy}
-        onOpenPlaylistBuilder={() => {
-          showToast('M3U Catalogue download available in Playlist Export (Phase 9)');
-        }}
+        onOpenPlaylistBuilder={() => setCurrentTab('playlist')}
       />
 
       {/* Main Container */}
@@ -387,6 +410,7 @@ export default function App() {
               onFilterChange={handleFilterChange}
               onResetFilters={handleResetFilters}
               onViewModeChange={handleViewModeChange}
+              onShareView={handleShareView}
             />
 
             {/* Channels Grid / List */}
@@ -539,7 +563,17 @@ export default function App() {
           </div>
         )}
 
-        {/* Tab 5: FAVORITES */}
+        {/* Tab 5: PLAYLIST BUILDER (Phase 9) */}
+        {currentTab === 'playlist' && (
+          <PlaylistBuilder
+            categories={categories}
+            countries={countries}
+            favorites={favorites}
+            totalChannels={totalChannels}
+          />
+        )}
+
+        {/* Tab 6: FAVORITES */}
         {currentTab === 'favorites' && (
           <FavoritesView
             favorites={favorites}
@@ -557,8 +591,11 @@ export default function App() {
             sources={sources}
             onOpenReportModal={() => {
               setReportChannelName('');
+              setReportChannelId(undefined);
+              setReportStreamUrl(undefined);
               setReportModalOpen(true);
             }}
+            onSelectSource={(sourceId) => setActiveSourceDetailId(sourceId)}
           />
         )}
       </main>
@@ -576,6 +613,8 @@ export default function App() {
           onToggleFavorite={handleToggleFavoriteChannel}
           onOpenReportModal={(name) => {
             setReportChannelName(name);
+            setReportChannelId(activePlayerChannel.id);
+            setReportStreamUrl(activePlayerChannel.streams[0]?.stream_url);
             setReportModalOpen(true);
           }}
         />
@@ -586,6 +625,20 @@ export default function App() {
         isOpen={reportModalOpen}
         onClose={() => setReportModalOpen(false)}
         channelName={reportChannelName}
+        channelId={reportChannelId}
+        streamUrl={reportStreamUrl}
+      />
+
+      {/* Source Detail Modal (Phase 10) */}
+      <SourceDetailModal
+        sourceId={activeSourceDetailId}
+        isOpen={Boolean(activeSourceDetailId)}
+        onClose={() => setActiveSourceDetailId(null)}
+        onFilterBySource={(sourceId) => {
+          handleFilterChange({ sourceId, page: 1 });
+          setCurrentTab('channels');
+        }}
+        onPlayChannel={handlePlayChannel}
       />
 
       {/* Footer */}
@@ -618,6 +671,8 @@ export default function App() {
             <button
               onClick={() => {
                 setReportChannelName('');
+                setReportChannelId(undefined);
+                setReportStreamUrl(undefined);
                 setReportModalOpen(true);
               }}
               style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontSize: '0.8125rem' }}

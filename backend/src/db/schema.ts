@@ -94,5 +94,20 @@ CREATE TABLE IF NOT EXISTS jobs (
 );
 
 CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);
+
+-- 6. User Broken-Link Reports Table (Phase 10 Quality Feature)
+CREATE TABLE IF NOT EXISTS channel_reports (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  channel_id INTEGER REFERENCES channels(id) ON DELETE SET NULL,
+  channel_name TEXT NOT NULL,
+  stream_url TEXT,
+  reason TEXT NOT NULL, -- 'broken', 'unsupported', 'inappropriate', 'metadata', 'other'
+  details TEXT,
+  reported_at TEXT NOT NULL DEFAULT (datetime('now')),
+  status TEXT NOT NULL DEFAULT 'pending' -- 'pending', 'investigated', 'dismissed'
+);
+
+CREATE INDEX IF NOT EXISTS idx_channel_reports_channel_id ON channel_reports(channel_id);
+CREATE INDEX IF NOT EXISTS idx_channel_reports_status ON channel_reports(status);
 `;
 

@@ -227,4 +227,160 @@ describe('Read-Only API Endpoints', () => {
       assert.ok(body.channels.length >= 3);
     });
   });
+
+  describe('GET /api/playlists/export.m3u', () => {
+    it('exports full catalogue as valid UTF-8 M3U playlist', async () => {
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/playlists/export.m3u',
+      });
+
+      assert.equal(res.statusCode, 200);
+      assert.equal(res.headers['content-type'], 'audio/x-mpegurl; charset=utf-8');
+      assert.equal(res.headers['content-disposition'], 'attachment; filename="teleplay-catalogue.m3u"');
+      assert.ok(res.payload.startsWith('#EXTM3U\n'));
+
+      // Validate round-trip with pure parser
+      const parsed = parseM3U(res.payload);
+      assert.equal(parsed.entries.length, 3);
+      assert.ok(parsed.entries.some((e) => e.name === 'CNN America'));
+      assert.ok(parsed.entries.some((e) => e.name === 'BBC World'));
+      assert.ok(parsed.entries.some((e) => e.name === 'Marca TV'));
+    });
+
+    it('exports filtered playlist by category', async () => {
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/playlists/export.m3u?category=News',
+      });
+
+      assert.equal(res.statusCode, 200);
+      assert.equal(res.headers['content-disposition'], 'attachment; filename="teleplay-news.m3u"');
+
+      const parsed = parseM3U(res.payload);
+      assert.equal(parsed.entries.length, 2);
+      assert.ok(parsed.entries.every((e) => e.groupTitle === 'News'));
+    });
+
+    it('exports custom selection by comma-separated channel IDs', async () => {
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/playlists/export.m3u?channelIds=1,3',
+      });
+
+      assert.equal(res.statusCode, 200);
+      assert.equal(res.headers['content-disposition'], 'attachment; filename="teleplay-selection.m3u"');
+
+      const parsed = parseM3U(res.payload);
+      assert.equal(parsed.entries.length, 2);
+      assert.ok(parsed.entries.some((e) => e.name === 'CNN America'));
+      assert.ok(parsed.entries.some((e) => e.name === 'Marca TV'));
+    });
+  });
+
+  describe('GET /api/sources/:id & Source Filtering', () => {
+    it('returns source details, provenance metrics, and sample channels', async () => {
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/sources/free-tv',
+      });
+
+      assert.equal(res.statusCode, 200);
+      const body = JSON.parse(res.payload);
+      assert.equal(body.source.id, 'free-tv');
+      assert.equal(body.source.name, 'Free-TV Curated Global');
+      assert.equal(body.source.channel_count, 3);
+      assert.equal(body.source.stream_count, 3);
+      assert.ok(Array.isArray(body.source.channels));
+      assert.equal(body.source.channels.length, 3);
+    });
+
+    it('returns 404 for unknown source ID', async () => {
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/sources/unknown-source',
+      });
+
+      assert.equal(res.statusCode, 404);
+    });
+
+    it('filters channels by sourceId', async () => {
+      const res1 = await app.inject({
+        method: 'GET',
+        url: '/api/channels?sourceId=free-tv',
+      });
+      assert.equal(res1.statusCode, 200);
+      const body1 = JSON.parse(res1.payload);
+      assert.equal(body1.channels.length, 3);
+
+      const res2 = await app.inject({
+        method: 'GET',
+        url: '/api/channels?sourceId=unknown-source',
+      });
+      assert.equal(res2.statusCode, 200);
+      const body2 = JSON.parse(res2.payload);
+      assert.equal(body2.channels.length, 0);
+    });
+  });
+
+  describe('Broken-Link Reports Endpoints', () => {
+    it('submits a broken link report successfully', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/reports',
+        payload: {
+          channelId: 1,
+          channelName: 'CNN America',
+          streamUrl: 'https://stream.example.com/cnn.m3u8',
+          reason: 'broken',
+          details: 'Stream returns HTTP 404 on playback.',
+        },
+      });
+
+      assert.equal(res.statusCode, 201);
+      const body = JSON.parse(res.payload);
+      assert.equal(body.success, true);
+      assert.ok(body.reportId > 0);
+      assert.ok(body.reportedAt);
+      assert.ok(body.message.includes('Report submitted successfully'));
+    });
+
+    it('rejects report submission without channel name', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/reports',
+        payload: {
+          reason: 'broken',
+        },
+      });
+
+      assert.equal(res.statusCode, 400);
+      const body = JSON.parse(res.payload);
+      assert.equal(body.error, 'Channel name is required');
+    });
+
+    it('lists submitted reports in reverse chronological order', async () => {
+      // Submit a second report
+      await app.inject({
+        method: 'POST',
+        url: '/api/reports',
+        payload: {
+          channelName: 'BBC World',
+          reason: 'unsupported',
+          details: 'Browser player reports CORS block',
+        },
+      });
+
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/reports',
+      });
+
+      assert.equal(res.statusCode, 200);
+      const body = JSON.parse(res.payload);
+      assert.ok(Array.isArray(body.reports));
+      assert.ok(body.reports.length >= 1);
+      assert.ok(body.reports.some((r: { channel_name: string }) => r.channel_name === 'BBC World'));
+    });
+  });
 });

@@ -61,6 +61,12 @@ Protected source/job controls, manual refresh, scan budgets, backups/restores, l
 Review SSRF/DNS rebinding/redirects, XSS, CORS, rate limits, token entropy, secrets, dependency health, memory/CPU/battery use.
 **Exit:** critical risks fixed or explicitly block release.
 
-## Phase 13 — Deployment and Release
+## Phase 13 — Deployment and Release (COMPLETE)
 Deploy static frontend; configure secure backend access; document Termux install/start/stop/restart/update/backup/restore; add source attribution, privacy/takedown contact, limitations, rollback and release checklist.
+- [x] Termux deployment and operation scripts created (`scripts/termux/install.sh`, `start.sh`, `stop.sh`, `backup.sh`, `cron-healthcheck.sh`).
+- [x] Complete deployment and operational documentation provided (`DEPLOYMENT.md`).
+- [x] Source attribution, licenses, terms, and takedown policy created (`ATTRIBUTION.md`).
+- [x] Static frontend deployment guide documented (Cloudflare Pages, Vercel, Netlify).
+- [x] Secure remote phone access via Cloudflare Tunnel / Tailscale documented.
 **Exit:** reproducible deployment and verified browse/play/export flow, with honest uptime expectations.
+

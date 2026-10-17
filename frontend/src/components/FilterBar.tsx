@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutGrid, List, Filter, X, ArrowUpDown } from 'lucide-react';
+import { LayoutGrid, List, Filter, X, ArrowUpDown, Share2, Database } from 'lucide-react';
 import { CategoryCount, CountryCount, ChannelFilters, ViewMode } from '../types';
 
 interface FilterBarProps {
@@ -11,6 +11,7 @@ interface FilterBarProps {
   onFilterChange: (updated: Partial<ChannelFilters>) => void;
   onResetFilters: () => void;
   onViewModeChange: (mode: ViewMode) => void;
+  onShareView?: () => void;
 }
 
 export const FilterBar: React.FC<FilterBarProps> = ({
@@ -22,13 +23,15 @@ export const FilterBar: React.FC<FilterBarProps> = ({
   onFilterChange,
   onResetFilters,
   onViewModeChange,
+  onShareView,
 }) => {
   const hasActiveFilters = Boolean(
     filters.category ||
     filters.country ||
     filters.healthStatus ||
+    filters.sourceId ||
     filters.search ||
-    filters.sortBy
+    (filters.sortBy && filters.sortBy !== 'name')
   );
 
   return (
@@ -150,6 +153,40 @@ export const FilterBar: React.FC<FilterBarProps> = ({
           </select>
         </div>
 
+        {/* Active Source Filter Badge */}
+        {filters.sourceId && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.35rem',
+              backgroundColor: 'rgba(59, 130, 246, 0.1)',
+              border: '1px solid rgba(59, 130, 246, 0.3)',
+              borderRadius: '0.375rem',
+              padding: '0.35rem 0.65rem',
+              fontSize: '0.8125rem',
+              color: 'var(--accent)',
+            }}
+          >
+            <Database size={13} />
+            <span>Source: <strong>{filters.sourceId}</strong></span>
+            <button
+              onClick={() => onFilterChange({ sourceId: undefined, page: 1 })}
+              title="Remove source filter"
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'var(--accent)',
+                cursor: 'pointer',
+                display: 'flex',
+                padding: '0 0 0 2px',
+              }}
+            >
+              <X size={12} />
+            </button>
+          </div>
+        )}
+
         {/* Reset button */}
         {hasActiveFilters && (
           <button
@@ -174,8 +211,32 @@ export const FilterBar: React.FC<FilterBarProps> = ({
         )}
       </div>
 
-      {/* Right side: View Mode Toggle & Total Count */}
+      {/* Right side: View Mode Toggle, Share View, & Total Count */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        {onShareView && (
+          <button
+            onClick={onShareView}
+            title="Share this filtered view (copies URL)"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.35rem',
+              backgroundColor: 'var(--bg-card)',
+              color: 'var(--text-muted)',
+              border: '1px solid var(--border)',
+              borderRadius: '0.375rem',
+              padding: '0.4rem 0.65rem',
+              fontSize: '0.75rem',
+              fontWeight: 500,
+              cursor: 'pointer',
+              transition: 'color 0.15s ease',
+            }}
+          >
+            <Share2 size={13} />
+            <span>Share View</span>
+          </button>
+        )}
+
         <span style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
           <strong>{totalChannels}</strong> channel{totalChannels === 1 ? '' : 's'}
         </span>
