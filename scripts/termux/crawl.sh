@@ -33,9 +33,16 @@ if [ -z "${ADMIN_TOKEN}" ]; then
   exit 1
 fi
 
-echo -e "${BLUE}==============================================${NC}"
-echo -e "${BLUE}     TelePlay Ingestion & Link Crawl         ${NC}"
-echo -e "${BLUE}==============================================${NC}"
+# Ensure backend server is running before attempting crawl
+if ! curl -s "http://127.0.0.1:${PORT}/api/health" >/dev/null 2>&1; then
+  echo -e "${YELLOW}! Backend server is not running on port ${PORT}. Starting it now...${NC}"
+  bash "${SCRIPT_DIR}/start.sh"
+  sleep 2
+fi
+
+echo -e "${BLUE}==============================================${NC}
+${BLUE}     TelePlay Ingestion & Link Crawl         ${NC}
+${BLUE}==============================================${NC}"
 
 # 1. Trigger Free-TV ingestion
 echo -e "\n${BLUE}[1/2] Ingesting Free-TV Curated Global feed...${NC}"
