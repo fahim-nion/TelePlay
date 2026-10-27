@@ -33,6 +33,18 @@ export async function buildApp(
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   });
 
+  // Root information route
+  app.get('/', async () => {
+    return {
+      service: 'TelePlay Backend API',
+      status: 'online',
+      version: '0.1.0',
+      message: 'TelePlay backend is running successfully on Termux. Connect this URL to your frontend.',
+      healthCheck: '/api/health',
+      stats: '/api/stats',
+    };
+  });
+
   // Health check endpoint required by Phase 1
   app.get('/api/health', async () => {
     return {

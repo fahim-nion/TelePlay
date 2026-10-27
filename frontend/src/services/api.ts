@@ -17,7 +17,29 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(url: string): Promise<T> {
+export function getApiBaseUrl(): string {
+  if (typeof window !== 'undefined') {
+    const custom = localStorage.getItem('teleplay_backend_url');
+    if (custom) return custom.trim().replace(/\/$/, '');
+  }
+  const envUrl = (import.meta as any).env?.VITE_API_BASE_URL;
+  if (envUrl) return String(envUrl).trim().replace(/\/$/, '');
+  return '';
+}
+
+export function setApiBaseUrl(url: string): void {
+  if (typeof window !== 'undefined') {
+    if (url && url.trim()) {
+      localStorage.setItem('teleplay_backend_url', url.trim().replace(/\/$/, ''));
+    } else {
+      localStorage.removeItem('teleplay_backend_url');
+    }
+  }
+}
+
+async function request<T>(path: string): Promise<T> {
+  const base = getApiBaseUrl();
+  const url = path.startsWith('http') ? path : `${base}${path}`;
   const res = await fetch(url);
   if (!res.ok) {
     const errorText = await res.text().catch(() => '');
@@ -68,7 +90,8 @@ export async function fetchSourceById(id: string): Promise<{ source: SourceDetai
 export async function submitReport(
   report: ReportSubmission
 ): Promise<{ success: boolean; reportId: number; message: string }> {
-  const res = await fetch('/api/reports', {
+  const base = getApiBaseUrl();
+  const res = await fetch(`${base}/api/reports`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(report),
@@ -114,6 +137,7 @@ export function getPlaylistExportUrl(options: {
   if (options.includeAllStreams) params.set('includeAllStreams', 'true');
 
   const qs = params.toString();
-  return `/api/playlists/export.m3u${qs ? `?${qs}` : ''}`;
+  const base = getApiBaseUrl();
+  return `${base}/api/playlists/export.m3u${qs ? `?${qs}` : ''}`;
 }
 
