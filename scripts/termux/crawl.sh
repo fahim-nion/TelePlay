@@ -45,20 +45,28 @@ ${BLUE}     TelePlay Ingestion & Link Crawl         ${NC}
 ${BLUE}==============================================${NC}"
 
 # 1. Trigger Free-TV ingestion
-echo -e "\n${BLUE}[1/2] Ingesting Free-TV Curated Global feed...${NC}"
+echo -e "\n${BLUE}[1/3] Ingesting Free-TV Curated Global feed...${NC}"
 RESP1=$(curl -s -w "\n%{http_code}" -X POST "http://127.0.0.1:${PORT}/api/admin/sources/free-tv/refresh" \
   -H "x-admin-token: ${ADMIN_TOKEN}" || true)
 CODE1=$(echo "${RESP1}" | tail -n1)
 BODY1=$(echo "${RESP1}" | sed '$d')
 echo "Result: HTTP ${CODE1} - ${BODY1}"
 
-# 2. Trigger iptv-org News ingestion
-echo -e "\n${BLUE}[2/2] Ingesting iptv-org News feed...${NC}"
-RESP2=$(curl -s -w "\n%{http_code}" -X POST "http://127.0.0.1:${PORT}/api/admin/sources/iptv-org-news/refresh" \
+# 2. Trigger iptv-org Bangladesh channels
+echo -e "\n${BLUE}[2/3] Ingesting iptv-org Bangladesh (BD) feed...${NC}"
+RESP2=$(curl -s -w "\n%{http_code}" -X POST "http://127.0.0.1:${PORT}/api/admin/sources/iptv-org-bd/refresh" \
   -H "x-admin-token: ${ADMIN_TOKEN}" || true)
 CODE2=$(echo "${RESP2}" | tail -n1)
 BODY2=$(echo "${RESP2}" | sed '$d')
 echo "Result: HTTP ${CODE2} - ${BODY2}"
+
+# 3. Trigger iptv-org News ingestion
+echo -e "\n${BLUE}[3/3] Ingesting iptv-org News feed...${NC}"
+RESP3=$(curl -s -w "\n%{http_code}" -X POST "http://127.0.0.1:${PORT}/api/admin/sources/iptv-org-news/refresh" \
+  -H "x-admin-token: ${ADMIN_TOKEN}" || true)
+CODE3=$(echo "${RESP3}" | tail -n1)
+BODY3=$(echo "${RESP3}" | sed '$d')
+echo "Result: HTTP ${CODE3} - ${BODY3}"
 
 echo -e "\n${YELLOW}Jobs are parsing and inserting channels in the background...${NC}"
 echo -n "Waiting for processing"

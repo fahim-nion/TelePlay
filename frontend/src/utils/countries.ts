@@ -120,3 +120,4 @@ export function formatAndSortCountries(
     }))
     .sort((a, b) => a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }));
 }
+

@@ -3,6 +3,7 @@ export interface ApprovedSource {
   name: string;
   url: string;
   categoryDefault?: string;
+  countryDefault?: string;
   terms: string;
   attribution: string;
   enabled: boolean;
@@ -23,11 +24,32 @@ export const APPROVED_SOURCES: Record<string, ApprovedSource> = {
     enabled: true,
     refreshIntervalHours: 24,
   },
+  'iptv-org-bd': {
+    id: 'iptv-org-bd',
+    name: 'iptv-org Bangladesh',
+    url: 'https://iptv-org.github.io/iptv/countries/bd.m3u',
+    categoryDefault: 'General',
+    countryDefault: 'BD',
+    terms: 'Dedicated to the Public Domain under The Unlicense',
+    attribution: 'iptv-org Project (https://github.com/iptv-org/iptv)',
+    enabled: true,
+    refreshIntervalHours: 24,
+  },
   'iptv-org-news': {
     id: 'iptv-org-news',
     name: 'iptv-org News Partition',
     url: 'https://iptv-org.github.io/iptv/categories/news.m3u',
     categoryDefault: 'News',
+    terms: 'Dedicated to the Public Domain under The Unlicense',
+    attribution: 'iptv-org Project (https://github.com/iptv-org/iptv)',
+    enabled: true,
+    refreshIntervalHours: 24,
+  },
+  'iptv-org-sports': {
+    id: 'iptv-org-sports',
+    name: 'iptv-org Sports Partition',
+    url: 'https://iptv-org.github.io/iptv/categories/sports.m3u',
+    categoryDefault: 'Sports',
     terms: 'Dedicated to the Public Domain under The Unlicense',
     attribution: 'iptv-org Project (https://github.com/iptv-org/iptv)',
     enabled: true,

@@ -44,7 +44,7 @@ export interface ChannelFilterOptions {
   sourceId?: string;
   limit?: number;
   offset?: number;
-  sortBy?: 'name' | 'recently_checked' | 'created_at';
+  sortBy?: 'name' | 'name_desc' | 'recently_checked' | 'created_at';
   sortOrder?: 'asc' | 'desc';
 }
 
@@ -71,7 +71,8 @@ export function persistParsedPlaylist(
   db: DatabaseSync,
   sourceId: string,
   parsed: ParsedPlaylist,
-  categoryDefault: string = 'Uncategorized'
+  categoryDefault: string = 'Uncategorized',
+  countryDefault?: string
 ): { insertedStreams: number; updatedStreams: number; channelsCreated: number } {
   return withTransaction(db, () => {
     // 1. Prepared statements for queries and updates
@@ -108,9 +109,10 @@ export function persistParsedPlaylist(
       const canonicalName = normalizeCanonicalName(entry.name);
       const category = entry.groupTitle || categoryDefault;
       const tvgId = entry.tvgId || null;
-      let country = entry.tvgCountry || entry.rawAttributes['country'] || null;
+      let country = entry.tvgCountry || entry.rawAttributes['country'] || countryDefault || null;
       if (!country && tvgId && tvgId.includes('.')) {
-        const parts = tvgId.split('.');
+        const baseId = tvgId.split('@')[0];
+        const parts = baseId.split('.');
         const lastPart = parts[parts.length - 1].toUpperCase();
         if (lastPart.length === 2 && /^[A-Z]{2}$/.test(lastPart)) {
           country = lastPart;

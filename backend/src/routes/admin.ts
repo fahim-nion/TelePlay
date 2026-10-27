@@ -108,7 +108,7 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesOptions> = async (app, o
       try {
         const fetchRes = await safeFetch(source.url);
         const parsed = parseM3U(fetchRes.data);
-        const stats = persistParsedPlaylist(db, source.id, parsed, source.categoryDefault);
+        const stats = persistParsedPlaylist(db, source.id, parsed, source.categoryDefault, source.countryDefault);
 
         const completeJob = db.prepare(`
           UPDATE jobs
