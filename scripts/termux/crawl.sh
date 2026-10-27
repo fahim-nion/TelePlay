@@ -68,10 +68,33 @@ for i in {1..8}; do
 done
 echo ""
 
-echo -e "\n${GREEN}✓ Current Catalogue Statistics:${NC}"
+echo -e "\n${GREEN}✓ Ingestion Complete. Catalogue Snapshot:${NC}"
 curl -s "http://127.0.0.1:${PORT}/api/stats"
 echo ""
 
-echo -e "\n${BLUE}To run a health check batch on these new channels:${NC}"
-echo -e "  ${GREEN}bash scripts/termux/cron-healthcheck.sh${NC}\n"
+# 3. Automatically run stream health verification so live channels are verified immediately
+echo -e "\n${BLUE}==============================================${NC}"
+echo -e "${BLUE}     Automated Stream Health Verification    ${NC}"
+echo -e "${BLUE}==============================================${NC}"
+echo -e "${YELLOW}Probing ingested streams to identify working vs dead links...${NC}"
+
+PAYLOAD='{"batchSize": 50, "concurrency": 5, "timeoutMs": 5000}'
+curl -s -X POST "http://127.0.0.1:${PORT}/api/admin/health-check/run" \
+  -H "x-admin-token: ${ADMIN_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d "${PAYLOAD}" >/dev/null || true
+
+echo -n "Probing streams"
+for i in {1..8}; do
+  echo -n "."
+  sleep 1
+done
+echo ""
+
+echo -e "\n${GREEN}✓ Updated Stream Health Summary:${NC}"
+curl -s "http://127.0.0.1:${PORT}/api/stats"
+echo ""
+
+echo -e "${BLUE}Tip:${NC} In your web browser, tap ${GREEN}'Working Only'${NC} to view exclusively live working channels!"
+echo -e "To verify more channels continuously, run: ${BLUE}bash scripts/termux/cron-healthcheck.sh${NC}\n"
 

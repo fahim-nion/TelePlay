@@ -157,23 +157,55 @@ export default function App() {
     loadChannels();
   }, [loadChannels]);
 
-  // Sync URL query state when tab or filters change
+  // Navigate between tabs with browser history tracking
+  const navigateTab = useCallback(
+    (newTab: NavTab, updatedFilters?: Partial<ChannelFilters>, pushHistory = true) => {
+      setCurrentTab(newTab);
+      const nextFilters = updatedFilters ? { ...filters, ...updatedFilters } : filters;
+      if (updatedFilters) {
+        setFilters(nextFilters);
+      }
+      if (pushHistory) {
+        const qs = buildUrlQuery(newTab, nextFilters);
+        window.history.pushState({ tab: newTab, filters: nextFilters }, '', `${window.location.pathname}${qs}`);
+      }
+    },
+    [filters]
+  );
+
+  // Sync URL query state when filters change inside current tab (using replaceState to avoid polluting history on simple toggles)
   useEffect(() => {
     const qs = buildUrlQuery(currentTab, filters);
     const newUrl = `${window.location.pathname}${qs}`;
-    window.history.replaceState(null, '', newUrl);
+    window.history.replaceState({ tab: currentTab, filters }, '', newUrl);
   }, [currentTab, filters]);
 
-  // Handle browser popstate navigation (Back / Forward)
+  // Handle browser popstate navigation (Back / Forward gestures and buttons)
   useEffect(() => {
     const handlePopState = () => {
+      // If player modal is open, close it first without navigating away
+      if (activePlayerChannel) {
+        setActivePlayerChannel(null);
+        return;
+      }
+      if (reportModalOpen) {
+        setReportModalOpen(false);
+        return;
+      }
+      if (activeSourceDetailId) {
+        setActiveSourceDetailId(null);
+        return;
+      }
+
+      // Restore tab and filters from URL search state
       const parsed = parseUrlState(window.location.search);
       setCurrentTab(parsed.tab);
       setFilters(parsed.filters);
     };
+
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, []);
+  }, [activePlayerChannel, reportModalOpen, activeSourceDetailId]);
 
   // Handlers
   const handleFilterChange = (updated: Partial<ChannelFilters>) => {
@@ -203,14 +235,12 @@ export default function App() {
   };
 
   const handleSelectCategory = (category: string) => {
-    setFilters((prev) => ({ ...prev, category, page: 1 }));
-    setCurrentTab('channels');
+    navigateTab('channels', { category, page: 1 });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleSelectCountry = (country: string) => {
-    setFilters((prev) => ({ ...prev, country, page: 1 }));
-    setCurrentTab('channels');
+    navigateTab('channels', { country, page: 1 });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -233,6 +263,7 @@ export default function App() {
     try {
       const data = await fetchChannelById(channel.id);
       setActivePlayerChannel(data.channel);
+      window.history.pushState({ modal: 'player' }, '', window.location.href);
     } catch (err) {
       console.warn('Failed to fetch full channel detail, falling back:', err);
       // Fallback for offline mode or cached channels
@@ -240,6 +271,7 @@ export default function App() {
         ...channel,
         streams: [],
       });
+      window.history.pushState({ modal: 'player' }, '', window.location.href);
     }
   };
 
@@ -313,10 +345,10 @@ export default function App() {
       {/* Top Navigation */}
       <Navbar
         currentTab={currentTab}
-        onSelectTab={setCurrentTab}
+        onSelectTab={(tab) => navigateTab(tab)}
         favoritesCount={favorites.length}
         isBackendHealthy={isBackendHealthy}
-        onOpenPlaylistBuilder={() => setCurrentTab('playlist')}
+        onOpenPlaylistBuilder={() => navigateTab('playlist')}
       />
 
       {/* Main Container */}
@@ -333,7 +365,9 @@ export default function App() {
               searchQuery={filters.search || ''}
               onSearchChange={(search) => {
                 handleFilterChange({ search });
-                if (search.trim()) setCurrentTab('channels');
+              }}
+              onSubmitSearch={(search) => {
+                navigateTab('channels', { search, page: 1 });
               }}
               onSelectCategoryShortcut={handleSelectCategory}
             />
@@ -347,7 +381,7 @@ export default function App() {
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
                 <h3 style={{ fontSize: '1.25rem', fontWeight: 700 }}>Recently Verified Channels</h3>
                 <button
-                  onClick={() => setCurrentTab('channels')}
+                  onClick={() => navigateTab('channels')}
                   style={{
                     backgroundColor: 'transparent',
                     color: 'var(--accent)',
@@ -581,7 +615,7 @@ export default function App() {
             onRemoveFavorite={handleRemoveFavoriteById}
             onPlay={handlePlayChannel}
             onCopyUrl={handleCopyChannelUrl}
-            onBrowseChannels={() => setCurrentTab('channels')}
+            onBrowseChannels={() => navigateTab('channels')}
           />
         )}
 
@@ -636,7 +670,7 @@ export default function App() {
         onClose={() => setActiveSourceDetailId(null)}
         onFilterBySource={(sourceId) => {
           handleFilterChange({ sourceId, page: 1 });
-          setCurrentTab('channels');
+          navigateTab('channels');
         }}
         onPlayChannel={handlePlayChannel}
       />
@@ -662,7 +696,7 @@ export default function App() {
           </p>
           <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginTop: '0.5rem' }}>
             <button
-              onClick={() => setCurrentTab('about')}
+              onClick={() => navigateTab('about')}
               style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontSize: '0.8125rem' }}
             >
               Approved Sources

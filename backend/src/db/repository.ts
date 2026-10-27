@@ -107,10 +107,18 @@ export function persistParsedPlaylist(
     for (const entry of parsed.entries) {
       const canonicalName = normalizeCanonicalName(entry.name);
       const category = entry.groupTitle || categoryDefault;
-      const country = entry.tvgCountry ? entry.tvgCountry.toUpperCase() : null;
+      const tvgId = entry.tvgId || null;
+      let country = entry.tvgCountry || entry.rawAttributes['country'] || null;
+      if (!country && tvgId && tvgId.includes('.')) {
+        const parts = tvgId.split('.');
+        const lastPart = parts[parts.length - 1].toUpperCase();
+        if (lastPart.length === 2 && /^[A-Z]{2}$/.test(lastPart)) {
+          country = lastPart;
+        }
+      }
+      const normalizedCountry = country ? country.toUpperCase().trim() : null;
       const language = entry.tvgLanguage || null;
       const logoUrl = entry.tvgLogo || null;
-      const tvgId = entry.tvgId || null;
 
       // Classify stream type
       let streamType = 'hls';
@@ -149,7 +157,7 @@ export function persistParsedPlaylist(
             canonicalName,
             entry.name,
             category,
-            country,
+            normalizedCountry,
             language,
             logoUrl,
             tvgId
@@ -241,11 +249,13 @@ export function listChannels(
   const total = totalRow.count;
 
   // Determine sort order
-  let orderSql = 'c.display_name ASC';
-  if (options.sortBy === 'recently_checked') {
-    orderSql = 'last_checked_at DESC NULLS LAST, c.display_name ASC';
+  let orderSql = 'c.display_name COLLATE NOCASE ASC';
+  if (options.sortBy === 'name_desc') {
+    orderSql = 'c.display_name COLLATE NOCASE DESC';
+  } else if (options.sortBy === 'recently_checked') {
+    orderSql = 'last_checked_at DESC NULLS LAST, c.display_name COLLATE NOCASE ASC';
   } else if (options.sortBy === 'created_at') {
-    orderSql = 'c.created_at DESC, c.display_name ASC';
+    orderSql = 'c.created_at DESC, c.display_name COLLATE NOCASE ASC';
   }
 
   // Query channels with stream count and latest health status

@@ -1,18 +1,39 @@
-import React, { useRef } from 'react';
-import { Search, X, Sparkles } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Search, X, Sparkles, ArrowRight } from 'lucide-react';
 
 interface SearchHeroProps {
   searchQuery: string;
   onSearchChange: (query: string) => void;
+  onSubmitSearch?: (query: string) => void;
   onSelectCategoryShortcut: (category: string) => void;
 }
 
 export const SearchHero: React.FC<SearchHeroProps> = ({
   searchQuery,
   onSearchChange,
+  onSubmitSearch,
   onSelectCategoryShortcut,
 }) => {
+  const [localQuery, setLocalQuery] = useState(searchQuery);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setLocalQuery(searchQuery);
+  }, [searchQuery]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSearchChange(localQuery);
+    if (onSubmitSearch) {
+      onSubmitSearch(localQuery);
+    }
+  };
+
+  const handleClear = () => {
+    setLocalQuery('');
+    onSearchChange('');
+    inputRef.current?.focus();
+  };
 
   const popularShortcuts = ['News', 'Animation', 'Music', 'Movies', 'Sports', 'General'];
 
@@ -41,7 +62,8 @@ export const SearchHero: React.FC<SearchHeroProps> = ({
       </p>
 
       {/* Search Input Bar */}
-      <div
+      <form
+        onSubmit={handleSubmit}
         style={{
           position: 'relative',
           display: 'flex',
@@ -49,7 +71,7 @@ export const SearchHero: React.FC<SearchHeroProps> = ({
           backgroundColor: 'var(--bg-secondary)',
           border: '1px solid var(--border)',
           borderRadius: '0.75rem',
-          padding: '0.25rem 0.5rem 0.25rem 1rem',
+          padding: '0.35rem 0.5rem 0.35rem 1rem',
           boxShadow: '0 4px 20px -2px rgba(0, 0, 0, 0.4)',
           transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
         }}
@@ -59,8 +81,8 @@ export const SearchHero: React.FC<SearchHeroProps> = ({
         <input
           ref={inputRef}
           type="text"
-          value={searchQuery}
-          onChange={(e) => onSearchChange(e.target.value)}
+          value={localQuery}
+          onChange={(e) => setLocalQuery(e.target.value)}
           placeholder="Search channels, countries, or categories..."
           aria-label="Search channels"
           style={{
@@ -73,12 +95,10 @@ export const SearchHero: React.FC<SearchHeroProps> = ({
             padding: '0.5rem 0',
           }}
         />
-        {searchQuery && (
+        {localQuery && (
           <button
-            onClick={() => {
-              onSearchChange('');
-              inputRef.current?.focus();
-            }}
+            type="button"
+            onClick={handleClear}
             title="Clear search"
             aria-label="Clear search"
             style={{
@@ -90,12 +110,33 @@ export const SearchHero: React.FC<SearchHeroProps> = ({
               alignItems: 'center',
               cursor: 'pointer',
               borderRadius: '0.25rem',
+              marginRight: '0.35rem',
             }}
           >
             <X size={18} />
           </button>
         )}
-      </div>
+        <button
+          type="submit"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.35rem',
+            backgroundColor: 'var(--accent)',
+            color: '#000',
+            border: 'none',
+            borderRadius: '0.5rem',
+            padding: '0.55rem 1rem',
+            fontSize: '0.875rem',
+            fontWeight: 600,
+            cursor: 'pointer',
+            flexShrink: 0,
+          }}
+        >
+          <span>Search</span>
+          <ArrowRight size={15} />
+        </button>
+      </form>
 
       {/* Quick category shortcut pills */}
       <div
@@ -103,36 +144,35 @@ export const SearchHero: React.FC<SearchHeroProps> = ({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          gap: '0.5rem',
-          marginTop: '1rem',
           flexWrap: 'wrap',
-          fontSize: '0.8125rem',
-          color: 'var(--text-muted)',
+          gap: '0.5rem',
+          marginTop: '1.25rem',
         }}
       >
-        <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-          <Sparkles size={13} style={{ color: 'var(--accent)' }} /> Quick tags:
-        </span>
-        {popularShortcuts.map((cat) => (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', color: 'var(--text-muted)', fontSize: '0.8125rem' }}>
+          <Sparkles size={14} style={{ color: 'var(--accent)' }} />
+          <span>Popular:</span>
+        </div>
+        {popularShortcuts.map((category) => (
           <button
-            key={cat}
-            onClick={() => onSelectCategoryShortcut(cat)}
+            key={category}
+            onClick={() => onSelectCategoryShortcut(category)}
             style={{
-              backgroundColor: 'var(--bg-card)',
-              color: 'var(--text-main)',
+              backgroundColor: 'var(--bg-secondary)',
               border: '1px solid var(--border)',
               borderRadius: '9999px',
-              padding: '0.2rem 0.65rem',
-              fontSize: '0.75rem',
+              padding: '0.25rem 0.75rem',
+              fontSize: '0.8125rem',
+              color: 'var(--text-muted)',
               cursor: 'pointer',
-              transition: 'background-color 0.15s ease, border-color 0.15s ease',
+              transition: 'all 0.15s ease',
             }}
+            className="shortcut-pill"
           >
-            {cat}
+            {category}
           </button>
         ))}
       </div>
     </div>
   );
 };
-

@@ -1,6 +1,17 @@
-import React from 'react';
-import { LayoutGrid, List, Filter, X, ArrowUpDown, Share2, Database } from 'lucide-react';
+import React, { useMemo } from 'react';
+import {
+  LayoutGrid,
+  List,
+  Filter,
+  X,
+  ArrowUpDown,
+  Share2,
+  Database,
+  Search,
+  CheckCircle2,
+} from 'lucide-react';
 import { CategoryCount, CountryCount, ChannelFilters, ViewMode } from '../types';
+import { formatAndSortCountries } from '../utils/countries';
 
 interface FilterBarProps {
   filters: ChannelFilters;
@@ -34,6 +45,18 @@ export const FilterBar: React.FC<FilterBarProps> = ({
     (filters.sortBy && filters.sortBy !== 'name')
   );
 
+  // Format and sort countries alphabetically
+  const sortedCountries = useMemo(() => {
+    return formatAndSortCountries(countries);
+  }, [countries]);
+
+  // Sort categories alphabetically
+  const sortedCategories = useMemo(() => {
+    return [...categories].sort((a, b) => a.category.localeCompare(b.category));
+  }, [categories]);
+
+  const isWorkingOnly = filters.healthStatus === 'working';
+
   return (
     <div
       style={{
@@ -49,12 +72,84 @@ export const FilterBar: React.FC<FilterBarProps> = ({
         gap: '0.75rem',
       }}
     >
-      {/* Left side: Filter Dropdowns */}
+      {/* Left side: Search & Filter Controls */}
       <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', flex: 1 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'var(--text-muted)', fontSize: '0.8125rem' }}>
-          <Filter size={15} />
-          <span>Filters:</span>
+        {/* Inline Search Bar */}
+        <div
+          style={{
+            position: 'relative',
+            display: 'flex',
+            alignItems: 'center',
+            backgroundColor: 'var(--bg-card)',
+            border: '1px solid var(--border)',
+            borderRadius: '0.375rem',
+            padding: '0.35rem 0.65rem',
+            minWidth: '180px',
+            maxWidth: '260px',
+            flex: 1,
+          }}
+        >
+          <Search size={14} style={{ color: 'var(--text-muted)', marginRight: '0.4rem', flexShrink: 0 }} />
+          <input
+            type="text"
+            value={filters.search || ''}
+            onChange={(e) => onFilterChange({ search: e.target.value, page: 1 })}
+            placeholder="Search channels..."
+            aria-label="Search channels"
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: 'var(--text-main)',
+              fontSize: '0.8125rem',
+              outline: 'none',
+              width: '100%',
+            }}
+          />
+          {filters.search && (
+            <button
+              onClick={() => onFilterChange({ search: '', page: 1 })}
+              title="Clear search"
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'var(--text-muted)',
+                cursor: 'pointer',
+                padding: '0.1rem',
+                display: 'flex',
+              }}
+            >
+              <X size={13} />
+            </button>
+          )}
         </div>
+
+        {/* Working Only Quick Toggle Button */}
+        <button
+          onClick={() =>
+            onFilterChange({
+              healthStatus: isWorkingOnly ? undefined : 'working',
+              page: 1,
+            })
+          }
+          title={isWorkingOnly ? 'Show all streams' : 'Show only verified working streams'}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.35rem',
+            backgroundColor: isWorkingOnly ? 'rgba(34, 197, 94, 0.2)' : 'var(--bg-card)',
+            color: isWorkingOnly ? '#4ade80' : 'var(--text-muted)',
+            border: `1px solid ${isWorkingOnly ? '#22c55e' : 'var(--border)'}`,
+            borderRadius: '0.375rem',
+            padding: '0.4rem 0.65rem',
+            fontSize: '0.8125rem',
+            fontWeight: isWorkingOnly ? 600 : 500,
+            cursor: 'pointer',
+            transition: 'all 0.15s ease',
+          }}
+        >
+          <CheckCircle2 size={14} style={{ color: isWorkingOnly ? '#4ade80' : 'var(--text-muted)' }} />
+          <span>Working Only</span>
+        </button>
 
         {/* Category Dropdown */}
         <select
@@ -70,17 +165,18 @@ export const FilterBar: React.FC<FilterBarProps> = ({
             fontSize: '0.8125rem',
             cursor: 'pointer',
             outline: 'none',
+            maxWidth: '180px',
           }}
         >
           <option value="">All Categories ({categories.reduce((a, b) => a + b.count, 0)})</option>
-          {categories.map((c) => (
+          {sortedCategories.map((c) => (
             <option key={c.category} value={c.category}>
               {c.category} ({c.count})
             </option>
           ))}
         </select>
 
-        {/* Country Dropdown */}
+        {/* Country Dropdown (Full names & sorted alphabetically) */}
         <select
           value={filters.country || ''}
           onChange={(e) => onFilterChange({ country: e.target.value || undefined, page: 1 })}
@@ -94,12 +190,13 @@ export const FilterBar: React.FC<FilterBarProps> = ({
             fontSize: '0.8125rem',
             cursor: 'pointer',
             outline: 'none',
+            maxWidth: '200px',
           }}
         >
-          <option value="">All Countries</option>
-          {countries.map((c) => (
-            <option key={c.country} value={c.country}>
-              {c.country} ({c.count})
+          <option value="">All Countries ({sortedCountries.length})</option>
+          {sortedCountries.map((c) => (
+            <option key={c.code} value={c.code}>
+              {c.flag} {c.name} ({c.count})
             </option>
           ))}
         </select>
@@ -120,7 +217,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
             outline: 'none',
           }}
         >
-          <option value="">All Health Statuses</option>
+          <option value="">All Statuses</option>
           <option value="working">Working recently</option>
           <option value="intermittent">Intermittent</option>
           <option value="unreachable">Unreachable</option>
@@ -148,6 +245,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
             }}
           >
             <option value="name">Name (A-Z)</option>
+            <option value="name_desc">Name (Z-A)</option>
             <option value="recently_checked">Recently Verified</option>
             <option value="created_at">Recently Added</option>
           </select>
@@ -289,4 +387,3 @@ export const FilterBar: React.FC<FilterBarProps> = ({
     </div>
   );
 };
-

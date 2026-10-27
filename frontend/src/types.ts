@@ -88,7 +88,7 @@ export interface ChannelFilters {
   country?: string;
   healthStatus?: string;
   sourceId?: string;
-  sortBy?: 'name' | 'recently_checked' | 'created_at';
+  sortBy?: 'name' | 'name_desc' | 'recently_checked' | 'created_at';
   page?: number;
   limit?: number;
 }

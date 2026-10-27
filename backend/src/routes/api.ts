@@ -35,7 +35,7 @@ export const apiRoutes: FastifyPluginAsync<ApiRoutesOptions> = async (app, optio
       country?: string;
       healthStatus?: string;
       sourceId?: string;
-      sortBy?: 'name' | 'recently_checked' | 'created_at';
+      sortBy?: 'name' | 'name_desc' | 'recently_checked' | 'created_at';
       page?: string;
       limit?: string;
     };

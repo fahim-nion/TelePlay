@@ -35,7 +35,11 @@ if [ -z "${ADMIN_TOKEN}" ]; then
   exit 1
 fi
 
-PAYLOAD='{"batchSize": 30, "concurrency": 3, "timeoutMs": 6000}'
+BATCH_SIZE="${1:-50}"
+CONCURRENCY="${2:-5}"
+PAYLOAD="{\"batchSize\": ${BATCH_SIZE}, \"concurrency\": ${CONCURRENCY}, \"timeoutMs\": 6000}"
+
+echo -e "\nTriggering health check on ${BATCH_SIZE} streams (concurrency: ${CONCURRENCY})..."
 
 RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "http://127.0.0.1:${PORT}/api/admin/health-check/run" \
   -H "x-admin-token: ${ADMIN_TOKEN}" \
@@ -46,4 +50,7 @@ HTTP_CODE=$(echo "${RESPONSE}" | tail -n1)
 BODY=$(echo "${RESPONSE}" | sed '$d')
 
 echo "[${DATE_STR}] HTTP ${HTTP_CODE} - ${BODY}" >> "${LOG_FILE}"
+echo "Result: HTTP ${HTTP_CODE} - ${BODY}"
+curl -s "http://127.0.0.1:${PORT}/api/stats"
+echo ""
 
