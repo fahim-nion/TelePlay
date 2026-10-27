@@ -82,6 +82,20 @@ export const HomePlayer: React.FC<HomePlayerProps> = ({
   const [copiedNote, setCopiedNote] = useState<string | null>(null);
   const [imageError, setImageError] = useState<boolean>(false);
 
+  // Refs to hold current volume/muted without triggering playback re-init
+  const volumeRef = useRef(volume);
+  const isMutedRef = useRef(isMuted);
+
+  useEffect(() => {
+    volumeRef.current = volume;
+    isMutedRef.current = isMuted;
+    const video = videoRef.current;
+    if (video) {
+      video.volume = volume;
+      video.muted = isMuted;
+    }
+  }, [volume, isMuted]);
+
   // Reset stream index when channel changes
   useEffect(() => {
     setSelectedStreamIndex(0);
@@ -95,7 +109,7 @@ export const HomePlayer: React.FC<HomePlayerProps> = ({
     }, 2500);
   };
 
-  // Teardown and initialize stream playback
+  // Teardown and initialize stream playback (only when channel or stream URL changes)
   const initPlayback = useCallback(() => {
     const video = videoRef.current;
     if (!video || !currentStream) {
@@ -119,8 +133,8 @@ export const HomePlayer: React.FC<HomePlayerProps> = ({
     setPlaybackState('loading');
     setErrorDiagnostic(null);
 
-    video.volume = volume;
-    video.muted = isMuted;
+    video.volume = volumeRef.current;
+    video.muted = isMutedRef.current;
 
     const streamUrl = currentStream.stream_url;
 
@@ -203,7 +217,7 @@ export const HomePlayer: React.FC<HomePlayerProps> = ({
         isExternalPlayerRecommended: true,
       });
     }
-  }, [channel, currentStream, volume, isMuted]);
+  }, [channel?.id, currentStream?.stream_url]);
 
   useEffect(() => {
     initPlayback();

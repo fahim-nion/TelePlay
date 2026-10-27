@@ -79,6 +79,20 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
   const [copiedNote, setCopiedNote] = useState<string | null>(null);
   const [imageError, setImageError] = useState<boolean>(false);
 
+  // Refs to hold current volume/muted without triggering playback re-init
+  const volumeRef = useRef(volume);
+  const isMutedRef = useRef(isMuted);
+
+  useEffect(() => {
+    volumeRef.current = volume;
+    isMutedRef.current = isMuted;
+    const video = videoRef.current;
+    if (video) {
+      video.volume = volume;
+      video.muted = isMuted;
+    }
+  }, [volume, isMuted]);
+
   const showToast = (msg: string) => {
     setCopiedNote(msg);
     setTimeout(() => {
@@ -86,7 +100,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
     }, 2500);
   };
 
-  // Teardown and initialize stream playback
+  // Teardown and initialize stream playback (only when stream URL changes)
   const initPlayback = useCallback(() => {
     const video = videoRef.current;
     if (!video || !currentStream) {
@@ -106,8 +120,8 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
     setPlaybackState('loading');
     setErrorDiagnostic(null);
 
-    video.volume = volume;
-    video.muted = isMuted;
+    video.volume = volumeRef.current;
+    video.muted = isMutedRef.current;
 
     const streamUrl = currentStream.stream_url;
 
@@ -190,7 +204,7 @@ export const PlayerView: React.FC<PlayerViewProps> = ({
         isExternalPlayerRecommended: true,
       });
     }
-  }, [currentStream, volume, isMuted]);
+  }, [currentStream?.stream_url]);
 
   useEffect(() => {
     initPlayback();
