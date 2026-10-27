@@ -45,7 +45,7 @@ ${BLUE}     TelePlay Ingestion & Link Crawl         ${NC}
 ${BLUE}==============================================${NC}"
 
 # 1. Trigger Free-TV ingestion
-echo -e "\n${BLUE}[1/3] Ingesting Free-TV Curated Global feed...${NC}"
+echo -e "\n${BLUE}[1/4] Ingesting Free-TV Curated Global feed...${NC}"
 RESP1=$(curl -s -w "\n%{http_code}" -X POST "http://127.0.0.1:${PORT}/api/admin/sources/free-tv/refresh" \
   -H "x-admin-token: ${ADMIN_TOKEN}" || true)
 CODE1=$(echo "${RESP1}" | tail -n1)
@@ -53,7 +53,7 @@ BODY1=$(echo "${RESP1}" | sed '$d')
 echo "Result: HTTP ${CODE1} - ${BODY1}"
 
 # 2. Trigger iptv-org Bangladesh channels
-echo -e "\n${BLUE}[2/3] Ingesting iptv-org Bangladesh (BD) feed...${NC}"
+echo -e "\n${BLUE}[2/4] Ingesting iptv-org Bangladesh (BD) feed...${NC}"
 RESP2=$(curl -s -w "\n%{http_code}" -X POST "http://127.0.0.1:${PORT}/api/admin/sources/iptv-org-bd/refresh" \
   -H "x-admin-token: ${ADMIN_TOKEN}" || true)
 CODE2=$(echo "${RESP2}" | tail -n1)
@@ -61,12 +61,20 @@ BODY2=$(echo "${RESP2}" | sed '$d')
 echo "Result: HTTP ${CODE2} - ${BODY2}"
 
 # 3. Trigger iptv-org News ingestion
-echo -e "\n${BLUE}[3/3] Ingesting iptv-org News feed...${NC}"
+echo -e "\n${BLUE}[3/4] Ingesting iptv-org News feed...${NC}"
 RESP3=$(curl -s -w "\n%{http_code}" -X POST "http://127.0.0.1:${PORT}/api/admin/sources/iptv-org-news/refresh" \
   -H "x-admin-token: ${ADMIN_TOKEN}" || true)
 CODE3=$(echo "${RESP3}" | tail -n1)
 BODY3=$(echo "${RESP3}" | sed '$d')
 echo "Result: HTTP ${CODE3} - ${BODY3}"
+
+# 4. Trigger iptv-org Sports ingestion
+echo -e "\n${BLUE}[4/4] Ingesting iptv-org Sports feed...${NC}"
+RESP4=$(curl -s -w "\n%{http_code}" -X POST "http://127.0.0.1:${PORT}/api/admin/sources/iptv-org-sports/refresh" \
+  -H "x-admin-token: ${ADMIN_TOKEN}" || true)
+CODE4=$(echo "${RESP4}" | tail -n1)
+BODY4=$(echo "${RESP4}" | sed '$d')
+echo "Result: HTTP ${CODE4} - ${BODY4}"
 
 echo -e "\n${YELLOW}Jobs are parsing and inserting channels in the background...${NC}"
 echo -n "Waiting for processing"
@@ -104,5 +112,5 @@ curl -s "http://127.0.0.1:${PORT}/api/stats"
 echo ""
 
 echo -e "${BLUE}Tip:${NC} In your web browser, tap ${GREEN}'Working Only'${NC} to view exclusively live working channels!"
-echo -e "To verify more channels continuously, run: ${BLUE}bash scripts/termux/cron-healthcheck.sh${NC}\n"
+echo -e "To verify all streams in the catalogue in one run: ${BLUE}bash scripts/termux/check-all.sh${NC}\n"
 

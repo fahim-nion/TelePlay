@@ -148,8 +148,8 @@ export const adminRoutes: FastifyPluginAsync<AdminRoutesOptions> = async (app, o
       maxBytes?: number;
     }) || {};
 
-    const batchSize = Math.min(100, Math.max(1, body.batchSize || config.healthCheckBatchSize));
-    const concurrency = Math.min(10, Math.max(1, body.concurrency || config.healthCheckConcurrency));
+    const batchSize = Math.min(500, Math.max(1, body.batchSize || config.healthCheckBatchSize));
+    const concurrency = Math.min(25, Math.max(1, body.concurrency || config.healthCheckConcurrency));
     const timeoutMs = Math.min(15000, Math.max(1000, body.timeoutMs || config.healthCheckTimeoutMs));
     const maxBytes = Math.min(262144, Math.max(8192, body.maxBytes || config.healthCheckMaxBytes));
 
