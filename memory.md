@@ -5,9 +5,9 @@ Update this file after every meaningful task. It is the handoff source for the n
 ## Current state
 - **Project:** TelePlay
 - **Current phase:** PHASE 13 — Deployment and Release (COMPLETE - Project 100% Implemented)
-- **Status:** All 13 phases are completely implemented, tested, and documented. Complete suite of Android Termux operational scripts created (`install.sh`, `start.sh`, `stop.sh`, `backup.sh`, `cron-healthcheck.sh`), comprehensive deployment documentation provided in `DEPLOYMENT.md`, and complete source attribution, legal disclaimer, and takedown procedures provided in `ATTRIBUTION.md`. 123/123 automated unit and integration tests passing, zero TypeScript errors, clean production builds.
-- **Current task:** Provide end-to-end Git push and Termux execution instructions to the user.
-- **Last updated:** 2026-10-18
+- **Status:** All 13 phases are completely implemented, tested, and documented. Complete suite of Android Termux operational scripts created (`install.sh`, `start.sh`, `stop.sh`, `backup.sh`, `check-all.sh`, `crawl.sh`, `cron-healthcheck.sh`), comprehensive deployment documentation provided in `DEPLOYMENT.md`, and complete source attribution, legal disclaimer, and takedown procedures provided in `ATTRIBUTION.md`. 126/126 automated unit and integration tests passing, zero TypeScript errors, clean production builds. Enhanced `check-all.sh` to automatically scan the entire catalogue at once with optional unified playlist crawling.
+- **Current task:** Assist user with running single-command full catalogue crawl & verification.
+- **Last updated:** 2026-10-28
 
 ## Product summary
 Public IPTV channel discovery directory, timestamped technical health checks, browser player for compatible streams, direct-link copy, and M3U playlist export. Backend intended for Android Termux; frontend may be static-hosted independently.
