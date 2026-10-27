@@ -90,6 +90,42 @@ button {
   box-shadow: 0 0 0 3px var(--accent-glow) !important;
 }
 
+/* Search Hero Submit Button & Mobile Responsive Styles */
+.search-hero-submit-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  background-color: var(--accent);
+  color: #000;
+  border: none;
+  border-radius: 0.5rem;
+  padding: 0.55rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+
+.search-hero-submit-btn:hover {
+  background-color: var(--accent-hover);
+}
+
+@media (max-width: 540px) {
+  .search-hero-submit-text {
+    display: none !important;
+  }
+  .search-hero-submit-btn {
+    padding: 0.55rem 0.75rem !important;
+  }
+  .search-bar-container {
+    padding: 0.35rem 0.4rem 0.35rem 0.75rem !important;
+  }
+  .player-btn-label {
+    display: none !important;
+  }
+}
+
 /* Responsive navigation utilities */
 .mobile-nav-toggle {
   display: none !important;

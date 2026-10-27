@@ -44,6 +44,7 @@ import { SkeletonCard } from './components/SkeletonCard';
 import { OfflineBanner } from './components/OfflineBanner';
 import { ReportModal } from './components/ReportModal';
 import { PlayerView } from './components/PlayerView';
+import { HomePlayer } from './components/HomePlayer';
 import { PlaylistBuilder } from './components/PlaylistBuilder';
 import { SourceDetailModal } from './components/SourceDetailModal';
 import { parseUrlState, buildUrlQuery, copyShareableLink } from './utils/url-state';
@@ -55,8 +56,15 @@ export default function App() {
   const [currentTab, setCurrentTab] = useState<NavigationTab>(initialUrl.tab);
   const [viewMode, setLocalViewMode] = useState<ViewMode>(getViewMode);
 
-  // Filters & Pagination (initialized from URL if present)
-  const [filters, setFilters] = useState<ChannelFilters>(initialUrl.filters);
+  // Filters & Pagination (initialized from URL if present; default healthStatus to 'working')
+  const [filters, setFilters] = useState<ChannelFilters>(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const hasExplicitHealthStatus = searchParams.has('healthStatus');
+    return {
+      ...initialUrl.filters,
+      healthStatus: hasExplicitHealthStatus ? initialUrl.filters.healthStatus : 'working',
+    };
+  });
 
   // Data States
   const [channels, setChannels] = useState<Channel[]>([]);
@@ -78,6 +86,10 @@ export default function App() {
   const [retryingBackend, setRetryingBackend] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+  // Embedded Homepage TV Player Screen
+  const [homePlayerChannel, setHomePlayerChannel] = useState<ChannelDetail | null>(null);
+  const [loadingHomePlayer, setLoadingHomePlayer] = useState<boolean>(false);
+
   // Report Modal
   const [reportModalOpen, setReportModalOpen] = useState(false);
   const [reportChannelName, setReportChannelName] = useState('');
@@ -87,7 +99,7 @@ export default function App() {
   // Source Detail Modal
   const [activeSourceDetailId, setActiveSourceDetailId] = useState<string | null>(null);
 
-  // Active Browser Player (Phase 8)
+  // Full Player Modal View
   const [activePlayerChannel, setActivePlayerChannel] = useState<ChannelDetail | null>(null);
 
   const showToast = (msg: string) => {
@@ -157,6 +169,28 @@ export default function App() {
     loadChannels();
   }, [loadChannels]);
 
+  // Automatically pre-load the first verified channel into the Homepage player
+  useEffect(() => {
+    if (channels.length > 0 && !homePlayerChannel) {
+      let isMounted = true;
+      fetchChannelById(channels[0].id)
+        .then((data) => {
+          if (isMounted) setHomePlayerChannel(data.channel);
+        })
+        .catch(() => {
+          if (isMounted) {
+            setHomePlayerChannel({
+              ...channels[0],
+              streams: [],
+            });
+          }
+        });
+      return () => {
+        isMounted = false;
+      };
+    }
+  }, [channels, homePlayerChannel]);
+
   // Navigate between tabs with browser history tracking
   const navigateTab = useCallback(
     (newTab: NavTab, updatedFilters?: Partial<ChannelFilters>, pushHistory = true) => {
@@ -221,7 +255,7 @@ export default function App() {
       search: '',
       category: '',
       country: '',
-      healthStatus: '',
+      healthStatus: 'working',
       sourceId: '',
       sortBy: 'name',
       page: 1,
@@ -256,10 +290,58 @@ export default function App() {
     showToast('Removed from favorites');
   };
 
+  // Tune the homepage TV player directly
+  const handleTuneHomePlayer = async (channel: Channel) => {
+    addRecentlyWatched(channel);
+    setRecentlyWatched(getRecentlyWatched());
+    setLoadingHomePlayer(true);
+
+    try {
+      const data = await fetchChannelById(channel.id);
+      setHomePlayerChannel(data.channel);
+    } catch {
+      setHomePlayerChannel({
+        ...channel,
+        streams: [],
+      });
+    } finally {
+      setLoadingHomePlayer(false);
+    }
+  };
+
+  const homeChannelIndex = homePlayerChannel
+    ? channels.findIndex((c) => c.id === homePlayerChannel.id)
+    : -1;
+  const hasHomePreviousChannel = homeChannelIndex > 0;
+  const hasHomeNextChannel = homeChannelIndex >= 0 && homeChannelIndex < channels.length - 1;
+
+  const handleNextHomeChannel = () => {
+    if (hasHomeNextChannel) {
+      handleTuneHomePlayer(channels[homeChannelIndex + 1]);
+    }
+  };
+
+  const handlePreviousHomeChannel = () => {
+    if (hasHomePreviousChannel) {
+      handleTuneHomePlayer(channels[homeChannelIndex - 1]);
+    }
+  };
+
   const handlePlayChannel = async (channel: Channel) => {
     addRecentlyWatched(channel);
     setRecentlyWatched(getRecentlyWatched());
 
+    // If on Homepage / Discover tab: tune the embedded homepage player and smoothly scroll to it
+    if (currentTab === 'discover') {
+      await handleTuneHomePlayer(channel);
+      const playerEl = document.querySelector('.home-player-card');
+      if (playerEl) {
+        playerEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+      return;
+    }
+
+    // On other tabs (Channels, Favorites): open full player modal
     try {
       const data = await fetchChannelById(channel.id);
       setActivePlayerChannel(data.channel);
@@ -370,6 +452,28 @@ export default function App() {
                 navigateTab('channels', { search, page: 1 });
               }}
               onSelectCategoryShortcut={handleSelectCategory}
+            />
+
+            {/* Embedded Live TV Player Screen on Homepage */}
+            <HomePlayer
+              channel={homePlayerChannel}
+              channels={channels}
+              loading={loadingHomePlayer || (loadingChannels && !homePlayerChannel)}
+              onSelectChannel={handleTuneHomePlayer}
+              onNextChannel={handleNextHomeChannel}
+              onPreviousChannel={handlePreviousHomeChannel}
+              hasNextChannel={hasHomeNextChannel}
+              hasPreviousChannel={hasHomePreviousChannel}
+              isFavorite={homePlayerChannel ? isFavorite(homePlayerChannel.id) : false}
+              onToggleFavorite={handleToggleFavoriteChannel}
+              onOpenReportModal={(name) => {
+                if (homePlayerChannel) {
+                  setReportChannelName(name);
+                  setReportChannelId(homePlayerChannel.id);
+                  setReportStreamUrl(homePlayerChannel.streams[0]?.stream_url);
+                  setReportModalOpen(true);
+                }
+              }}
             />
 
             <StatsSummary stats={stats} loading={loadingMeta} />

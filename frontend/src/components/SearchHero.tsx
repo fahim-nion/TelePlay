@@ -74,10 +74,13 @@ export const SearchHero: React.FC<SearchHeroProps> = ({
           padding: '0.35rem 0.5rem 0.35rem 1rem',
           boxShadow: '0 4px 20px -2px rgba(0, 0, 0, 0.4)',
           transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
+          width: '100%',
+          maxWidth: '100%',
+          boxSizing: 'border-box',
         }}
         className="search-bar-container"
       >
-        <Search size={20} style={{ color: 'var(--accent)', flexShrink: 0, marginRight: '0.75rem' }} />
+        <Search size={20} style={{ color: 'var(--accent)', flexShrink: 0, marginRight: '0.65rem' }} />
         <input
           ref={inputRef}
           type="text"
@@ -87,6 +90,8 @@ export const SearchHero: React.FC<SearchHeroProps> = ({
           aria-label="Search channels"
           style={{
             flex: 1,
+            minWidth: 0,
+            width: '100%',
             background: 'transparent',
             border: 'none',
             color: 'var(--text-main)',
@@ -111,6 +116,7 @@ export const SearchHero: React.FC<SearchHeroProps> = ({
               cursor: 'pointer',
               borderRadius: '0.25rem',
               marginRight: '0.35rem',
+              flexShrink: 0,
             }}
           >
             <X size={18} />
@@ -118,22 +124,10 @@ export const SearchHero: React.FC<SearchHeroProps> = ({
         )}
         <button
           type="submit"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.35rem',
-            backgroundColor: 'var(--accent)',
-            color: '#000',
-            border: 'none',
-            borderRadius: '0.5rem',
-            padding: '0.55rem 1rem',
-            fontSize: '0.875rem',
-            fontWeight: 600,
-            cursor: 'pointer',
-            flexShrink: 0,
-          }}
+          className="search-hero-submit-btn"
+          aria-label="Submit search"
         >
-          <span>Search</span>
+          <span className="search-hero-submit-text">Search</span>
           <ArrowRight size={15} />
         </button>
       </form>

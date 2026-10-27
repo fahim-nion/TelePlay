@@ -84,7 +84,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
             border: '1px solid var(--border)',
             borderRadius: '0.375rem',
             padding: '0.35rem 0.65rem',
-            minWidth: '180px',
+            minWidth: '130px',
             maxWidth: '260px',
             flex: 1,
           }}
@@ -103,6 +103,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
               fontSize: '0.8125rem',
               outline: 'none',
               width: '100%',
+              minWidth: 0,
             }}
           />
           {filters.search && (
@@ -127,7 +128,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
         <button
           onClick={() =>
             onFilterChange({
-              healthStatus: isWorkingOnly ? undefined : 'working',
+              healthStatus: isWorkingOnly ? '' : 'working',
               page: 1,
             })
           }
